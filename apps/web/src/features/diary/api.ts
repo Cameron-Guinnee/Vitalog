@@ -1,4 +1,4 @@
-import { NUTRIENT, dayRange, round1, sumNutrients, timestampForDay, type NutrientMap } from '@vitalog/shared'
+import { NUTRIENT, dayRange, round1, sumNutrients, timestampForDay, weightToKg, type NutrientMap } from '@vitalog/shared'
 import { supabase } from '../../lib/supabase'
 
 export type FoodEntry = {
@@ -159,4 +159,68 @@ export async function addNote(n: NoteInput) {
     .from('notes')
     .insert({ user_id: n.userId, content: n.content, meal_group: n.group, created_at: timestampForDay(n.day) })
   if (error) throw error
+}
+
+export type ExerciseInput = {
+  userId: string
+  day: string
+  group: number
+  name: string
+  category: string
+  minutes: number
+  caloriesBurned: number
+  notes: string
+}
+
+export async function addExercise(e: ExerciseInput) {
+  const { error } = await supabase.from('exercise_log').insert({
+    user_id: e.userId,
+    exercise_name: e.name,
+    category: e.category,
+    duration_minutes: e.minutes,
+    calories_burned: e.caloriesBurned,
+    logged_at: timestampForDay(e.day),
+    meal_group: e.group,
+    notes: e.notes || null,
+  })
+  if (error) throw error
+}
+
+export type BiometricInput = {
+  userId: string
+  day: string
+  group: number
+  notes: string
+  /** One reading, or two for blood pressure (systolic and diastolic). */
+  readings: { metric: string; value: number; unit: string }[]
+}
+
+export async function addBiometric(b: BiometricInput) {
+  const loggedAt = timestampForDay(b.day)
+  const { error } = await supabase.from('biometrics').insert(
+    b.readings.map((r) => ({
+      user_id: b.userId,
+      metric_type: r.metric,
+      value: r.value,
+      unit: r.unit,
+      logged_at: loggedAt,
+      meal_group: b.group,
+      notes: b.notes || null,
+    })),
+  )
+  if (error) throw error
+}
+
+/** The most recent weigh-in, in kg, or null if the user hasn't logged one. */
+export async function fetchLatestWeightKg(userId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('biometrics')
+    .select('value, unit')
+    .eq('user_id', userId)
+    .eq('metric_type', 'weight')
+    .order('logged_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const latest = data?.[0]
+  return latest ? weightToKg(latest.value, latest.unit) : null
 }

@@ -180,6 +180,84 @@ describe('diary', () => {
   })
 })
 
+describe('exercise and biometrics', () => {
+  it('estimates exercise calories from the latest logged weight', async () => {
+    // The latest weigh-in is 176 lb (79.8 kg): running at 5 mph (8.3 MET) for 30 minutes is 331 kcal.
+    fake.current.state.rows = { biometrics: [{ id: 'b1', metric_type: 'weight', value: 176, unit: 'lbs', meal_group: 0, notes: null }] }
+    renderApp('/diary?date=2026-11-01')
+    await userEvent.click(await screen.findByRole('button', { name: 'Exercise' }))
+    const dialog = screen.getByRole('dialog', { name: 'Log exercise' })
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Cardio' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: /Running \(5 mph\)/ }))
+    await userEvent.type(within(dialog).getByLabelText('Duration (minutes)'), '30')
+    expect(within(dialog).getByLabelText('Calories burned')).toHaveValue(331)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Log exercise' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const insert = fake.current.state.calls[0]!
+    expect(insert).toMatchObject({
+      table: 'exercise_log',
+      op: 'insert',
+      payload: { exercise_name: 'Running (5 mph)', category: 'Cardio', duration_minutes: 30, calories_burned: 331 },
+    })
+    expect(toDayKey(new Date((insert.payload as { logged_at: string }).logged_at))).toBe('2026-11-01')
+  })
+
+  it('lets the user override the calorie estimate', async () => {
+    renderApp('/diary')
+    await userEvent.click(await screen.findByRole('button', { name: 'Exercise' }))
+    const dialog = screen.getByRole('dialog', { name: 'Log exercise' })
+    await userEvent.type(within(dialog).getByLabelText('Exercise name'), 'Climbing')
+    await userEvent.type(within(dialog).getByLabelText('Duration (minutes)'), '45')
+    await userEvent.click(within(dialog).getByLabelText('Enter calories myself'))
+    await userEvent.type(within(dialog).getByLabelText('Calories burned'), '400')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Log exercise' }))
+    await waitFor(() => expect(fake.current.state.calls).toHaveLength(1))
+    expect(fake.current.state.calls[0]!.payload).toMatchObject({ exercise_name: 'Climbing', category: 'Other', calories_burned: 400 })
+  })
+
+  it('saves blood pressure as two readings', async () => {
+    renderApp('/diary')
+    await userEvent.click(await screen.findByRole('button', { name: 'Biometric' }))
+    const dialog = screen.getByRole('dialog', { name: 'Log biometric' })
+    await userEvent.click(within(dialog).getByRole('radio', { name: /Blood pressure/ }))
+    await userEvent.type(within(dialog).getByLabelText('Systolic (mmHg)'), '118')
+    await userEvent.type(within(dialog).getByLabelText('Diastolic (mmHg)'), '76')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Log reading' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(fake.current.state.calls[0]!.payload).toEqual([
+      expect.objectContaining({ metric_type: 'blood_pressure_systolic', value: 118, unit: 'mmHg' }),
+      expect.objectContaining({ metric_type: 'blood_pressure_diastolic', value: 76, unit: 'mmHg' }),
+    ])
+  })
+
+  it('records body measurements in the user’s units and reports failures', async () => {
+    fake.current.state.profile = { ...fake.current.state.profile, units_preference: 'metric' }
+    fake.current.state.writeError = { message: 'boom' }
+    renderApp('/diary')
+    await userEvent.click(await screen.findByRole('button', { name: 'Biometric' }))
+    const dialog = screen.getByRole('dialog', { name: 'Log biometric' })
+    await userEvent.click(within(dialog).getByRole('radio', { name: /Waist/ }))
+    await userEvent.type(within(dialog).getByLabelText('Waist (cm)'), '84')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Log reading' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Couldn’t save')
+    expect(fake.current.state.calls[0]!.payload).toEqual([expect.objectContaining({ metric_type: 'waist', value: 84, unit: 'cm' })])
+  })
+
+  it('shows water from the day’s food against the goal', async () => {
+    fake.current.state.rows = {
+      diary_entries: [
+        { id: 'e1', meal_group: 0, quantity: 1, serving_unit: 'bottle', foods: { name: 'Water' }, custom_foods: null, diary_nutrient_values: [{ nutrient_id: NUTRIENT.water, value: 480 }] },
+      ],
+    }
+    fake.current.state.profile = { ...fake.current.state.profile, display_settings: { water_unit: 'cups', water_goal_glasses: 8 } }
+    renderApp('/diary')
+    const water = await screen.findByRole('region', { name: 'Water' })
+    await waitFor(() => expect(within(water).getByText('2 / 8 cups')).toBeInTheDocument())
+    expect(within(water).getByText('25% of your daily goal')).toBeInTheDocument()
+  })
+})
+
 describe('app shell', () => {
   it('links to every section, with placeholders for screens not ported yet', async () => {
     const { router } = renderApp('/diary')

@@ -6,13 +6,16 @@ import { useSearchParams } from 'react-router'
 import { useUserId } from '../auth/AuthProvider'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { addFoodEntry, addNote, deleteDiaryEntry, diaryQueryKey, fetchDiaryDay, type DiaryEntry } from '../features/diary/api'
+import { addBiometric, addExercise, addFoodEntry, addNote, deleteDiaryEntry, diaryQueryKey, fetchDiaryDay, type DiaryEntry } from '../features/diary/api'
+import { BiometricDialog } from '../features/diary/BiometricDialog'
 import { DateNavigator } from '../features/diary/DateNavigator'
 import { EnergySummary } from '../features/diary/EnergySummary'
+import { ExerciseDialog } from '../features/diary/ExerciseDialog'
 import { FoodDialog, type FoodToAdd } from '../features/diary/FoodDialog'
 import { MealSection } from '../features/diary/MealSection'
 import { NoteDialog } from '../features/diary/NoteDialog'
 import { NutrientTable } from '../features/diary/NutrientTable'
+import { WaterTracker } from '../features/diary/WaterTracker'
 import { activeDiaryGroups, displaySettingsFrom } from '../features/profile/displaySettings'
 import { useProfile } from '../features/profile/useProfile'
 
@@ -24,7 +27,7 @@ export function Diary() {
   const [params, setParams] = useSearchParams()
   const dateParam = params.get('date')
   const day = dateParam && DAY_PATTERN.test(dateParam) ? dateParam : toDayKey(new Date())
-  const [dialog, setDialog] = useState<'food' | 'note' | null>(null)
+  const [dialog, setDialog] = useState<'food' | 'note' | 'exercise' | 'biometric' | null>(null)
 
   const profile = useProfile(userId)
   const settings = displaySettingsFrom(profile.data?.display_settings)
@@ -68,10 +71,10 @@ export function Diary() {
           <Button variant="secondary" onClick={() => setDialog('note')}>
             <StickyNote size={16} /> Note
           </Button>
-          <Button variant="secondary" disabled title="Coming in the next update">
+          <Button variant="secondary" onClick={() => setDialog('exercise')}>
             <Dumbbell size={16} /> Exercise
           </Button>
-          <Button variant="secondary" disabled title="Coming in the next update">
+          <Button variant="secondary" onClick={() => setDialog('biometric')}>
             <Activity size={16} /> Biometric
           </Button>
         </div>
@@ -80,12 +83,23 @@ export function Diary() {
       {diary.isError && <Alert tone="error">Couldn’t load this day. Refresh to try again.</Alert>}
       {remove.isError && <Alert tone="error">Couldn’t delete that entry. Please try again.</Alert>}
 
-      {settings.show_energy_summary && (
-        <EnergySummary
-          nutrients={diary.data?.nutrients ?? {}}
-          calorieGoal={profile.data?.calorie_goal ?? 2000}
-          caloriesBurned={diary.data?.caloriesBurned ?? 0}
-        />
+      {(settings.show_energy_summary || settings.show_water_widget) && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {settings.show_energy_summary && (
+            <div className={settings.show_water_widget ? 'lg:col-span-2' : 'lg:col-span-3'}>
+              <EnergySummary
+                nutrients={diary.data?.nutrients ?? {}}
+                calorieGoal={profile.data?.calorie_goal ?? 2000}
+                caloriesBurned={diary.data?.caloriesBurned ?? 0}
+              />
+            </div>
+          )}
+          {settings.show_water_widget && (
+            <div className={settings.show_energy_summary ? '' : 'lg:col-span-3'}>
+              <WaterTracker nutrients={diary.data?.nutrients ?? {}} unit={settings.water_unit} goalGlasses={settings.water_goal_glasses} />
+            </div>
+          )}
+        </div>
       )}
 
       {diary.isPending ? (
@@ -103,6 +117,28 @@ export function Diary() {
         groups={groups}
         defaultGroup={1}
         onAdd={handleAddFood}
+      />
+      <ExerciseDialog
+        open={dialog === 'exercise'}
+        onClose={() => setDialog(null)}
+        userId={userId}
+        groups={groups}
+        onSave={async (e) => {
+          await addExercise({ userId, day, ...e })
+          await refresh()
+        }}
+      />
+      <BiometricDialog
+        open={dialog === 'biometric'}
+        onClose={() => setDialog(null)}
+        units={profile.data?.units_preference === 'metric' ? 'metric' : 'imperial'}
+        groups={groups}
+        onSave={async (b) => {
+          await addBiometric({ userId, day, ...b })
+          await refresh()
+          // A new weigh-in changes the weight used for exercise estimates.
+          await queryClient.invalidateQueries({ queryKey: ['latest-weight', userId] })
+        }}
       />
       <NoteDialog
         open={dialog === 'note'}
