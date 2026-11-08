@@ -11,3 +11,7 @@ coverage/
 .idea/
 supabase/.temp/
 supabase/.branches/
+
+# Database backups hold personal data; keep them out of git.
+backup-*.sql
+*.dump

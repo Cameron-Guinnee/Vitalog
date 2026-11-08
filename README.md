@@ -38,6 +38,15 @@ Email links (signup confirmation, password reset) send people back to the web ap
 - **Site URL**: the deployed site once it exists; `http://localhost:5173` until then.
 - **Redirect URLs**: add `http://localhost:5173/**` for local development, and the deployed origin followed by `/**` later.
 
+## Keeping the free Supabase project awake
+
+Free Supabase projects pause after about a week without activity. The `Keep Supabase awake` workflow (`.github/workflows/keep-alive.yml`) reads one row a day so the demo never goes to sleep. It needs two repository secrets, under Settings → Secrets and variables → Actions:
+
+- `SUPABASE_URL`: the project URL, such as `https://<project-ref>.supabase.co`
+- `SUPABASE_ANON_KEY`: the anon (publishable) key. Never the service role key.
+
+To check it, run the workflow by hand from the Actions tab. GitHub turns off scheduled workflows in public repositories after 60 days with no commits, and emails a warning first; re-enable it from the Actions tab, or push any commit.
+
 ## Database
 
 `20261107000000_baseline.sql` reproduces the live schema exactly as it was on 2026-11-07. Every change after that is a new migration.
