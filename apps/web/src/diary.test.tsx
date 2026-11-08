@@ -262,10 +262,9 @@ describe('app shell', () => {
   it('links to every section, with placeholders for screens not ported yet', async () => {
     const { router } = renderApp('/diary')
     const nav = await screen.findByRole('navigation', { name: 'Main' })
-    await userEvent.click(within(nav).getByRole('button', { name: 'More' }))
-    await userEvent.click(within(nav).getByRole('link', { name: 'Display settings' }))
-    expect(router.state.location.pathname).toBe('/more/display')
-    expect(screen.getByRole('heading', { name: 'Display settings' })).toBeInTheDocument()
+    await userEvent.click(within(nav).getByRole('link', { name: 'Support' }))
+    expect(router.state.location.pathname).toBe('/support')
+    expect(screen.getByRole('heading', { name: 'Support' })).toBeInTheDocument()
     expect(screen.getByText(/being rebuilt/)).toBeInTheDocument()
   })
 

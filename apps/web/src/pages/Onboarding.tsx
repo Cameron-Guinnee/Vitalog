@@ -3,14 +3,11 @@ import {
   ACTIVITY_LEVELS,
   WEIGHT_GOAL_TYPES,
   ageOn,
-  bmr,
-  feetInchesToCm,
-  lbToKg,
-  tdee,
   weeklyGoalsFor,
   weeklyRateFromKcal,
   type ActivityLevel,
   type Sex,
+  type Units,
   type WeightGoalType,
 } from '@vitalog/shared'
 import { useState, type FormEvent } from 'react'
@@ -21,11 +18,10 @@ import { Button } from '../components/ui/button'
 import { ChoiceGroup } from '../components/ui/choice'
 import { Field } from '../components/ui/field'
 import { Input } from '../components/ui/input'
+import { heightCmOf, num, tdeeOf, weightKgOf } from '../features/profile/body'
 import { profileQueryKey } from '../features/profile/useProfile'
 import { cn } from '../lib/utils'
 import { supabase } from '../lib/supabase'
-
-type Units = 'imperial' | 'metric'
 
 type Form = {
   displayName: string
@@ -61,24 +57,7 @@ const initialForm: Form = {
 
 const STEPS = ['Personal information', 'Body measurements', 'Activity and goals'] as const
 
-const num = (s: string) => (s.trim() === '' ? NaN : Number(s))
-
-export function heightCmOf(f: Pick<Form, 'units' | 'heightFt' | 'heightIn' | 'heightCm'>) {
-  return f.units === 'imperial' ? feetInchesToCm(num(f.heightFt), num(f.heightIn) || 0) : num(f.heightCm)
-}
-
-export function weightKgOf(f: Pick<Form, 'units' | 'weight'>) {
-  return f.units === 'imperial' ? lbToKg(num(f.weight)) : num(f.weight)
-}
-
-/** Maintenance calories for the form so far, or 0 when something is missing. */
-export function tdeeOf(f: Form): number {
-  const heightCm = heightCmOf(f)
-  const weightKg = weightKgOf(f)
-  const age = f.dateOfBirth ? ageOn(f.dateOfBirth) : 0
-  if (!f.sex || !f.activity || !(heightCm > 0) || !(weightKg > 0) || !(age > 0)) return 0
-  return tdee(bmr({ weightKg, heightCm, age, sex: f.sex }), f.activity)
-}
+export { heightCmOf, weightKgOf, tdeeOf }
 
 export function validate(step: number, f: Form): string | null {
   if (step === 0) {

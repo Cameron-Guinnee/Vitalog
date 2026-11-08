@@ -160,3 +160,8 @@ export async function fetchSleep(userId: string, today: string, days: number) {
   if (error) throw error
   return data ?? []
 }
+
+export async function deleteFast(id: string) {
+  const { error } = await supabase.from('fasting_log').delete().eq('id', id)
+  if (error) throw error
+}

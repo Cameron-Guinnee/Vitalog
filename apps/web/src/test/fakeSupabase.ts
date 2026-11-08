@@ -96,7 +96,9 @@ export function createFakeSupabase() {
     signOut: vi.fn(() => Promise.resolve({ error: null })),
   }
 
-  return { state, client: { auth, from } }
+  const rpc = vi.fn<(fn: string, args?: unknown) => Promise<{ data: null; error: Err }>>(() => Promise.resolve({ data: null, error: null }))
+
+  return { state, client: { auth, from, rpc } }
 }
 
 export type FakeSupabase = ReturnType<typeof createFakeSupabase>

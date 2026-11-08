@@ -95,6 +95,32 @@ do $$ begin
   assert (select count(*) from public.diary_entries) = 0, 'anon should not see any diary entries';
 end $$;
 
+-- Account deletion: anon can't call it, and user B deleting their account leaves A's data alone.
+do $$ begin
+  begin
+    perform public.delete_own_account();
+    raise exception 'anon was able to call delete_own_account';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+insert into public.diary_entries (user_id, meal_type, quantity, serving_unit, logged_at)
+  values (auth.uid(), 'dinner', 1, 'g', now());
+select public.delete_own_account();
+
+reset role;
+do $$ begin
+  assert not exists (select from auth.users where id = '22222222-2222-2222-2222-222222222222'), 'delete_own_account should remove the auth user';
+  assert not exists (select from public.profiles where id = '22222222-2222-2222-2222-222222222222'), 'delete_own_account should remove the profile';
+  assert not exists (select from public.diary_entries where user_id = '22222222-2222-2222-2222-222222222222'), 'delete_own_account should remove the diary';
+  assert exists (select from public.profiles where id = '11111111-1111-1111-1111-111111111111'), 'deleting one account should leave other accounts alone';
+  assert (select count(*) from public.diary_entries) = 2, 'deleting one account should leave other users'' diaries alone';
+end $$;
+set role anon;
+
 -- Billing service.
 reset role;
 set role service_role;

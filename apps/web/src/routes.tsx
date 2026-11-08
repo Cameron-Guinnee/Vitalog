@@ -13,6 +13,11 @@ import { CustomMeals } from './pages/foods/CustomMeals'
 import { CustomRecipes } from './pages/foods/CustomRecipes'
 import { RepeatItems } from './pages/foods/RepeatItems'
 import { SearchFoods } from './pages/foods/SearchFoods'
+import { DisplaySettings } from './pages/more/DisplaySettings'
+import { Fasting } from './pages/more/Fasting'
+import { SyncDevice } from './pages/more/SyncDevice'
+import { Targets } from './pages/more/Targets'
+import { YourAccount } from './pages/more/YourAccount'
 import { NotFound } from './pages/NotFound'
 import { Onboarding } from './pages/Onboarding'
 
@@ -33,7 +38,15 @@ const foodPages: RouteObject[] = [
   { path: '/foods/search', element: <SearchFoods /> },
 ]
 
-const PORTED = new Set(['/diary', ...[...lazyPages, ...foodPages].map((r) => r.path)])
+const morePages: RouteObject[] = [
+  { path: '/more/targets', element: <Targets /> },
+  { path: '/more/fasting', element: <Fasting /> },
+  { path: '/more/display', element: <DisplaySettings /> },
+  { path: '/more/sync', element: <SyncDevice /> },
+  { path: '/more/account', element: <YourAccount /> },
+]
+
+const PORTED = new Set(['/diary', ...[...lazyPages, ...foodPages, ...morePages].map((r) => r.path)])
 
 // Every other sidebar destination gets a placeholder until its screen is ported.
 const placeholders: RouteObject[] = NAV.flatMap((item) => (item.children ?? [{ path: item.path! }]).map((c) => c.path))
@@ -61,7 +74,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             element: <AppShell />,
-            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...foodPages, ...placeholders],
+            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...foodPages, ...morePages, ...placeholders],
           },
         ],
       },
