@@ -1,0 +1,32 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after about a week with no activity, which would
+# leave anyone visiting the demo looking at a dead app. One tiny read a day keeps
+# the database awake. It reads the public nutrients table, so it needs only the
+# anon (publishable) key, never the service role key.
+on:
+  schedule:
+    - cron: '17 9 * * *' # daily at 09:17 UTC; off the hour, when GitHub's scheduler is less busy
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read one row from the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 3 --retry-delay 15 --retry-all-errors \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "${SUPABASE_URL%/}/rest/v1/nutrients?select=id&limit=1" > /dev/null
+          echo "Supabase answered."
