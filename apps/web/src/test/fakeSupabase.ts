@@ -1,48 +1,71 @@
 import { vi } from 'vitest'
 
-type Result = { data?: unknown; error: { message: string } | null }
+type Err = { message: string } | null
+type Call = { table: string; op: 'select' | 'insert' | 'upsert' | 'update' | 'delete'; payload?: unknown; filters: unknown[][] }
 
 /**
- * A small in-memory stand-in for the Supabase client. Tests set `session` and
- * `profile`, and read `calls` to see what the app wrote.
+ * A small in-memory stand-in for the Supabase client. Tests set `session`,
+ * `profile` and `rows` (what a select on each table returns), and read `calls`
+ * to see what the app asked for and wrote.
  */
 export function createFakeSupabase() {
   const state = {
     session: null as null | { user: { id: string; email: string } },
     profile: null as Record<string, unknown> | null,
-    writeError: null as Result['error'],
-    calls: [] as { table: string; op: string; payload?: unknown }[],
+    rows: {} as Record<string, unknown[]>,
+    writeError: null as Err,
+    calls: [] as Call[],
+    nextId: 1,
   }
 
-  const ok = (data: unknown = null): Result => ({ data, error: null })
-
   function from(table: string) {
-    const write = (op: string) => (payload?: unknown) => {
-      state.calls.push({ table, op, payload })
-      const result: Result = { data: null, error: state.writeError }
-      const chain = { eq: () => Promise.resolve(result), then: (r: (v: Result) => void) => Promise.resolve(result).then(r) }
-      return chain
+    const call: Call = { table, op: 'select', filters: [] }
+    let single = false
+
+    const result = () => {
+      if (call.op === 'select') {
+        if (table === 'profiles' && single) {
+          return state.profile ? { data: state.profile, error: null } : { data: null, error: { message: 'not found' } }
+        }
+        return { data: state.rows[table] ?? [], error: null }
+      }
+      if (state.writeError) return { data: null, error: state.writeError }
+      return { data: single ? { id: `new-${state.nextId++}` } : null, error: null }
     }
-    return {
-      select: () => ({
-        eq: () => ({
-          single: () =>
-            Promise.resolve(table === 'profiles' && state.profile ? ok(state.profile) : { data: null, error: { message: 'not found' } }),
-        }),
-      }),
-      insert: write('insert'),
-      upsert: write('upsert'),
-      update: write('update'),
+
+    const builder: Record<string, unknown> = {
+      then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => Promise.resolve(result()).then(resolve, reject),
+      single: () => {
+        single = true
+        return builder
+      },
     }
+    for (const op of ['insert', 'upsert', 'update', 'delete'] as const) {
+      builder[op] = (payload?: unknown) => {
+        call.op = op
+        call.payload = payload
+        state.calls.push(call)
+        return builder
+      }
+    }
+    // Reading back an insert keeps it a write; on its own, select starts a read.
+    builder.select = () => builder
+    for (const f of ['eq', 'gte', 'lt', 'lte', 'order', 'limit', 'ilike', 'textSearch']) {
+      builder[f] = (...args: unknown[]) => {
+        call.filters.push([f, ...args])
+        return builder
+      }
+    }
+    return builder as never
   }
 
   const auth = {
     getSession: vi.fn(() => Promise.resolve({ data: { session: state.session }, error: null })),
     onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: () => {} } } })),
-    signInWithPassword: vi.fn(() => Promise.resolve({ data: {}, error: null as Result['error'] })),
-    signUp: vi.fn(() => Promise.resolve({ data: {}, error: null as Result['error'] })),
-    resetPasswordForEmail: vi.fn(() => Promise.resolve({ data: {}, error: null as Result['error'] })),
-    updateUser: vi.fn(() => Promise.resolve({ data: {}, error: null as Result['error'] })),
+    signInWithPassword: vi.fn(() => Promise.resolve({ data: {}, error: null as Err })),
+    signUp: vi.fn(() => Promise.resolve({ data: {}, error: null as Err })),
+    resetPasswordForEmail: vi.fn(() => Promise.resolve({ data: {}, error: null as Err })),
+    updateUser: vi.fn(() => Promise.resolve({ data: {}, error: null as Err })),
     signOut: vi.fn(() => Promise.resolve({ error: null })),
   }
 
