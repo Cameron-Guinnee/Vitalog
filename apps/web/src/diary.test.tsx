@@ -1,7 +1,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NUTRIENT, toDayKey } from '@vitalog/shared'
+import { matchRoutes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NAV } from './components/layout/nav'
+import { routes } from './routes'
 import { createFakeSupabase, type FakeSupabase } from './test/fakeSupabase'
 import { renderApp } from './test/renderApp'
 
@@ -259,13 +262,24 @@ describe('exercise and biometrics', () => {
 })
 
 describe('app shell', () => {
-  it('links to every section, with placeholders for screens not ported yet', async () => {
+  it('links to every section', async () => {
     const { router } = renderApp('/diary')
     const nav = await screen.findByRole('navigation', { name: 'Main' })
     await userEvent.click(within(nav).getByRole('link', { name: 'Support' }))
     expect(router.state.location.pathname).toBe('/support')
     expect(screen.getByRole('heading', { name: 'Support' })).toBeInTheDocument()
-    expect(screen.getByText(/being rebuilt/)).toBeInTheDocument()
+  })
+
+  it('has a screen for every sidebar entry', () => {
+    const paths = NAV.flatMap((item) => (item.children ?? [{ path: item.path! }]).map((c) => c.path))
+    for (const path of paths) expect(matchRoutes(routes, path)?.at(-1)?.route.path, path).toBe(path)
+  })
+
+  it('shows the support FAQs and contact email', async () => {
+    renderApp('/support')
+    await userEvent.click(await screen.findByText('How are streaks counted?'))
+    expect(screen.getByText(/any food, exercise or biometric/)).toBeVisible()
+    expect(screen.getByRole('link', { name: /support@vitalog\.app/ })).toHaveAttribute('href', 'mailto:support@vitalog.app')
   })
 
   it('signs out from the account menu', async () => {

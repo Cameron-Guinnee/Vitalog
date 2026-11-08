@@ -1,12 +1,10 @@
 import { Navigate, type RouteObject } from 'react-router'
 import { RedirectIfSignedIn, RequireAuth, RequireOnboarded } from './auth/guards'
 import { AppShell } from './components/layout/AppShell'
-import { NAV } from './components/layout/nav'
 import { ForgotPassword } from './pages/auth/ForgotPassword'
 import { Login } from './pages/auth/Login'
 import { ResetPassword } from './pages/auth/ResetPassword'
 import { Signup } from './pages/auth/Signup'
-import { ComingSoon } from './pages/ComingSoon'
 import { Diary } from './pages/Diary'
 import { CustomFoods } from './pages/foods/CustomFoods'
 import { CustomMeals } from './pages/foods/CustomMeals'
@@ -20,6 +18,7 @@ import { Targets } from './pages/more/Targets'
 import { YourAccount } from './pages/more/YourAccount'
 import { NotFound } from './pages/NotFound'
 import { Onboarding } from './pages/Onboarding'
+import { Support } from './pages/Support'
 
 // Screens with charts are loaded on demand: the charts library is most of their weight.
 const lazyPages: RouteObject[] = [
@@ -46,13 +45,6 @@ const morePages: RouteObject[] = [
   { path: '/more/account', element: <YourAccount /> },
 ]
 
-const PORTED = new Set(['/diary', ...[...lazyPages, ...foodPages, ...morePages].map((r) => r.path)])
-
-// Every other sidebar destination gets a placeholder until its screen is ported.
-const placeholders: RouteObject[] = NAV.flatMap((item) => (item.children ?? [{ path: item.path! }]).map((c) => c.path))
-  .filter((path) => !PORTED.has(path))
-  .map((path) => ({ path, element: <ComingSoon /> }))
-
 export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/dashboard" replace /> },
   {
@@ -74,7 +66,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             element: <AppShell />,
-            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...foodPages, ...morePages, ...placeholders],
+            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...foodPages, ...morePages, { path: '/support', element: <Support /> }],
           },
         ],
       },
