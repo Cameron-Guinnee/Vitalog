@@ -27,3 +27,24 @@ html {
 body {
   @apply bg-background text-foreground font-sans antialiased;
 }
+
+/* Printing the report: only the report shows, on white paper. */
+@media print {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background: white;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #print-report,
+  #print-report * {
+    visibility: visible;
+  }
+  #print-report {
+    position: absolute;
+    inset: 0 0 auto 0;
+  }
+}

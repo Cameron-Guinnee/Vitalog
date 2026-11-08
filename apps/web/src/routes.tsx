@@ -11,7 +11,16 @@ import { Diary } from './pages/Diary'
 import { NotFound } from './pages/NotFound'
 import { Onboarding } from './pages/Onboarding'
 
-const PORTED = new Set(['/dashboard', '/diary'])
+// Screens with charts are loaded on demand: the charts library is most of their weight.
+const lazyPages: RouteObject[] = [
+  { path: '/dashboard', lazy: async () => ({ Component: (await import('./pages/Dashboard')).Dashboard }) },
+  { path: '/trends/charts', lazy: async () => ({ Component: (await import('./pages/trends/Charts')).Charts }) },
+  { path: '/trends/nutrition-report', lazy: async () => ({ Component: (await import('./pages/trends/NutritionReport')).NutritionReport }) },
+  { path: '/trends/print-report', lazy: async () => ({ Component: (await import('./pages/trends/PrintReport')).PrintReport }) },
+  { path: '/trends/snapshots', lazy: async () => ({ Component: (await import('./pages/trends/Snapshots')).Snapshots }) },
+]
+
+const PORTED = new Set(['/diary', ...lazyPages.map((r) => r.path)])
 
 // Every other sidebar destination gets a placeholder until its screen is ported.
 const placeholders: RouteObject[] = NAV.flatMap((item) => (item.children ?? [{ path: item.path! }]).map((c) => c.path))
@@ -39,11 +48,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             element: <AppShell />,
-            children: [{
-                path: '/dashboard',
-                // Loaded on demand: the charts library is most of its weight.
-                lazy: async () => ({ Component: (await import('./pages/Dashboard')).Dashboard }),
-              }, { path: '/diary', element: <Diary /> }, ...placeholders],
+            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...placeholders],
           },
         ],
       },

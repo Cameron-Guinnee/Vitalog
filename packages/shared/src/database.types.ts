@@ -4,6 +4,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      biometric_snapshots: {
+        Row: {
+          id: string
+          user_id: string
+          metrics: Json
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          metrics?: Json
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          metrics?: Json
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "biometric_snapshots_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ]
+      }
       biometrics: {
         Row: {
           id: string

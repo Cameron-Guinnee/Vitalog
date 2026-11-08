@@ -1,21 +1,9 @@
 import { NUTRIENT, addDays, dayRange, toDayKey } from '@vitalog/shared'
+import { allPages } from '../../lib/pages'
 import { supabase } from '../../lib/supabase'
 import type { EnergyLog, Fast, Reading } from './stats'
 
 export const dashboardKey = (userId: string, ...rest: unknown[]) => ['dashboard', userId, ...rest] as const
-
-// PostgREST returns at most 1000 rows per request, so longer ranges are read in pages.
-const PAGE = 1000
-
-async function allPages<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
-  const rows: T[] = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await page(from, from + PAGE - 1)
-    if (error) throw error
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE) return rows
-  }
-}
 
 /** From the start of `fromDay` to the end of `toDay`, as ISO timestamps. */
 function span(fromDay: string, toDay: string) {
@@ -71,20 +59,14 @@ export async function fetchEnergy(userId: string, fromDay: string, toDay: string
   }
 }
 
-/** Readings of one biometric since a day, oldest first. */
-export async function fetchReadings(userId: string, metric: string, fromDay: string): Promise<Reading[]> {
-  const rows = await allPages((from, to) =>
-    supabase
-      .from('biometrics')
-      .select('id, logged_at, value, unit')
-      .eq('user_id', userId)
-      .eq('metric_type', metric)
-      .gte('logged_at', dayRange(fromDay).start)
-      .order('logged_at')
-      .order('id')
-      .range(from, to),
-  )
-  return rows.map((r) => ({ loggedAt: r.logged_at, value: r.value, unit: r.unit }))
+/** Readings of one biometric since a day (or ever, when `fromDay` is null), oldest first. */
+export async function fetchReadings(userId: string, metric: string, fromDay: string | null): Promise<Reading[]> {
+  const rows = await allPages((from, to) => {
+    let q = supabase.from('biometrics').select('id, logged_at, value, unit, notes').eq('user_id', userId).eq('metric_type', metric)
+    if (fromDay) q = q.gte('logged_at', dayRange(fromDay).start)
+    return q.order('logged_at').order('id').range(from, to)
+  })
+  return rows.map((r) => ({ id: r.id, loggedAt: r.logged_at, value: r.value, unit: r.unit, notes: r.notes }))
 }
 
 /** The first and latest weigh-ins ever, for progress toward the weight goal. */

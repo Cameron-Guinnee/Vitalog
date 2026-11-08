@@ -1,10 +1,13 @@
 import { NUTRIENT_GROUPS, type NutrientMap } from '@vitalog/shared'
 import { cn } from '../../lib/utils'
 
-export function NutrientTable({ nutrients }: { nutrients: NutrientMap }) {
+export function NutrientTable({ nutrients, title = 'Nutrient targets', description }: { nutrients: NutrientMap; title?: string; description?: string }) {
   return (
-    <section aria-label="Nutrient targets" className="flex flex-col gap-4 rounded-xl bg-surface p-5">
-      <h2 className="font-medium">Nutrient targets</h2>
+    <section aria-label={title} className="flex flex-col gap-4 rounded-xl bg-surface p-5">
+      <div>
+        <h2 className="font-medium">{title}</h2>
+        {description && <p className="text-sm text-muted">{description}</p>}
+      </div>
       <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
         {NUTRIENT_GROUPS.map((group) => (
           <table key={group.label} className="w-full text-sm">

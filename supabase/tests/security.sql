@@ -39,7 +39,28 @@ do $$ begin
     raise exception 'a user was able to write to another user''s diary';
   exception when insufficient_privilege then null;
   end;
+
+  insert into public.biometric_snapshots (user_id, metrics) values (auth.uid(), '{"weight": {"value": 180, "unit": "lbs"}}');
+  begin
+    insert into public.biometric_snapshots (user_id) values ('22222222-2222-2222-2222-222222222222');
+    raise exception 'a user was able to save a snapshot for another user';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
+
+-- Signed-in user B can't see or delete A's snapshot.
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+do $$ begin
+  assert (select count(*) from public.biometric_snapshots) = 0, 'a user should not see another user''s snapshots';
+  delete from public.biometric_snapshots;
+end $$;
+
+reset role;
+do $$ begin
+  assert (select count(*) from public.biometric_snapshots) = 1, 'a user should not be able to delete another user''s snapshots';
+end $$;
+set role authenticated;
 
 -- Signed-out visitor.
 reset role;

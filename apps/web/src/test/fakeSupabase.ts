@@ -32,7 +32,10 @@ export function createFakeSupabase() {
         if (table === 'profiles' && single) {
           return state.profile ? { data: state.profile, error: null } : { data: null, error: { message: 'not found' } }
         }
-        const rows = state.rows[table] ?? []
+        // eq filters apply to rows that have the column, so tests only need the fields they care about.
+        const rows = (state.rows[table] ?? []).filter((row) =>
+          call.filters.every(([f, col, val]) => f !== 'eq' || typeof row !== 'object' || row === null || !(String(col) in row) || (row as Record<string, unknown>)[String(col)] === val),
+        )
         if (head) return { data: null, count: state.counts[table] ?? rows.length, error: null }
         if (maybeSingle) return { data: rows[0] ?? null, error: null }
         return { data: range ? rows.slice(range[0], range[1] + 1) : rows, error: null }
@@ -69,7 +72,7 @@ export function createFakeSupabase() {
       head = options?.head ?? false
       return builder
     }
-    for (const f of ['eq', 'gte', 'lt', 'lte', 'in', 'is', 'order', 'limit', 'ilike', 'textSearch']) {
+    for (const f of ['eq', 'gte', 'lt', 'lte', 'in', 'is', 'not', 'order', 'limit', 'ilike', 'textSearch']) {
       builder[f] = (...args: unknown[]) => {
         call.filters.push([f, ...args])
         return builder

@@ -97,7 +97,7 @@ export function formatElapsed(ms: number): string {
   return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`
 }
 
-export type Reading = { loggedAt: string; value: number; unit: string }
+export type Reading = { id?: string; loggedAt: string; value: number; unit: string; notes?: string | null }
 export type Point = { day: string; value: number }
 
 /** Weigh-ins in the user's units, one per day (the last of the day), oldest first. */
