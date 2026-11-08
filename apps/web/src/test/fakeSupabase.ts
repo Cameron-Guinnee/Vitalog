@@ -5,7 +5,7 @@ type Call = { table: string; op: 'select' | 'insert' | 'upsert' | 'update' | 'de
 
 /**
  * A small in-memory stand-in for the Supabase client. Tests set `session`,
- * `profile` and `rows` (what a select on each table returns), and read `calls`
+ * `profile`, `rows` (what a select on each table returns) and `counts`, and read `calls`
  * to see what the app asked for and wrote.
  */
 export function createFakeSupabase() {
@@ -13,6 +13,8 @@ export function createFakeSupabase() {
     session: null as null | { user: { id: string; email: string } },
     profile: null as Record<string, unknown> | null,
     rows: {} as Record<string, unknown[]>,
+    /** What a head-only count on each table returns; defaults to the number of rows. */
+    counts: {} as Record<string, number>,
     writeError: null as Err,
     calls: [] as Call[],
     nextId: 1,
@@ -21,13 +23,19 @@ export function createFakeSupabase() {
   function from(table: string) {
     const call: Call = { table, op: 'select', filters: [] }
     let single = false
+    let maybeSingle = false
+    let head = false
+    let range: [number, number] | null = null
 
     const result = () => {
       if (call.op === 'select') {
         if (table === 'profiles' && single) {
           return state.profile ? { data: state.profile, error: null } : { data: null, error: { message: 'not found' } }
         }
-        return { data: state.rows[table] ?? [], error: null }
+        const rows = state.rows[table] ?? []
+        if (head) return { data: null, count: state.counts[table] ?? rows.length, error: null }
+        if (maybeSingle) return { data: rows[0] ?? null, error: null }
+        return { data: range ? rows.slice(range[0], range[1] + 1) : rows, error: null }
       }
       if (state.writeError) return { data: null, error: state.writeError }
       return { data: single ? { id: `new-${state.nextId++}` } : null, error: null }
@@ -37,6 +45,14 @@ export function createFakeSupabase() {
       then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => Promise.resolve(result()).then(resolve, reject),
       single: () => {
         single = true
+        return builder
+      },
+      maybeSingle: () => {
+        maybeSingle = true
+        return builder
+      },
+      range: (from: number, to: number) => {
+        range = [from, to]
         return builder
       },
     }
@@ -49,8 +65,11 @@ export function createFakeSupabase() {
       }
     }
     // Reading back an insert keeps it a write; on its own, select starts a read.
-    builder.select = () => builder
-    for (const f of ['eq', 'gte', 'lt', 'lte', 'order', 'limit', 'ilike', 'textSearch']) {
+    builder.select = (_columns?: string, options?: { head?: boolean }) => {
+      head = options?.head ?? false
+      return builder
+    }
+    for (const f of ['eq', 'gte', 'lt', 'lte', 'in', 'is', 'order', 'limit', 'ilike', 'textSearch']) {
       builder[f] = (...args: unknown[]) => {
         call.filters.push([f, ...args])
         return builder

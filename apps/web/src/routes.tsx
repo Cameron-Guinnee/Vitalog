@@ -7,7 +7,6 @@ import { Login } from './pages/auth/Login'
 import { ResetPassword } from './pages/auth/ResetPassword'
 import { Signup } from './pages/auth/Signup'
 import { ComingSoon } from './pages/ComingSoon'
-import { Dashboard } from './pages/Dashboard'
 import { Diary } from './pages/Diary'
 import { NotFound } from './pages/NotFound'
 import { Onboarding } from './pages/Onboarding'
@@ -40,7 +39,11 @@ export const routes: RouteObject[] = [
         children: [
           {
             element: <AppShell />,
-            children: [{ path: '/dashboard', element: <Dashboard /> }, { path: '/diary', element: <Diary /> }, ...placeholders],
+            children: [{
+                path: '/dashboard',
+                // Loaded on demand: the charts library is most of its weight.
+                lazy: async () => ({ Component: (await import('./pages/Dashboard')).Dashboard }),
+              }, { path: '/diary', element: <Diary /> }, ...placeholders],
           },
         ],
       },

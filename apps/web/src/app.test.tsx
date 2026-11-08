@@ -39,7 +39,7 @@ describe('route guards', () => {
     fake.current.state.session = { user }
     fake.current.state.profile = onboardedProfile
     const { router } = renderApp('/login')
-    expect(await screen.findByRole('heading', { name: 'Welcome, Alice' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Welcome back, Alice' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/dashboard')
   })
 

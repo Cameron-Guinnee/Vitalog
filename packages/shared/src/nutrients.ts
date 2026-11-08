@@ -5,6 +5,7 @@ export const NUTRIENT = {
   fat: 1004,
   carbs: 1005,
   water: 1051,
+  alcohol: 1018,
 } as const
 
 export type NutrientMap = Record<number, number>

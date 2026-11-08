@@ -9,6 +9,15 @@ export type DisplaySettings = {
   water_unit: string
   water_goal_glasses: number
   energy_unit: string
+  // Dashboard cards
+  show_fasting: boolean
+  show_weight_goal: boolean
+  show_energy_consumed: boolean
+  show_energy_history: boolean
+  show_weight_change: boolean
+  show_sleep: boolean
+  show_streaks: boolean
+  show_weight: boolean
   diary_groups: DiaryGroup[]
   [key: string]: unknown
 }
@@ -20,6 +29,14 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   water_unit: 'fl_oz',
   water_goal_glasses: 8,
   energy_unit: 'kcal',
+  show_fasting: true,
+  show_weight_goal: true,
+  show_energy_consumed: true,
+  show_energy_history: true,
+  show_weight_change: true,
+  show_sleep: true,
+  show_streaks: true,
+  show_weight: true,
   diary_groups: [
     { enabled: true, name: 'Uncategorized' },
     { enabled: true, name: 'Breakfast' },
