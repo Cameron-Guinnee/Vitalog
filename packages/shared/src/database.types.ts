@@ -98,6 +98,7 @@ export type Database = {
           serving_unit: string | null
           created_at: string
           brand: string | null
+          archived_at: string | null
         }
         Insert: {
           id?: string
@@ -107,6 +108,7 @@ export type Database = {
           serving_unit?: string | null
           created_at?: string
           brand?: string | null
+          archived_at?: string | null
         }
         Update: {
           id?: string
@@ -116,6 +118,7 @@ export type Database = {
           serving_unit?: string | null
           created_at?: string
           brand?: string | null
+          archived_at?: string | null
         }
         Relationships: [
           { foreignKeyName: "custom_foods_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
@@ -183,6 +186,7 @@ export type Database = {
           created_at: string
           meal_group: number | null
           custom_food_id: string | null
+          recipe_id: string | null
         }
         Insert: {
           id?: string
@@ -195,6 +199,7 @@ export type Database = {
           created_at?: string
           meal_group?: number | null
           custom_food_id?: string | null
+          recipe_id?: string | null
         }
         Update: {
           id?: string
@@ -207,8 +212,10 @@ export type Database = {
           created_at?: string
           meal_group?: number | null
           custom_food_id?: string | null
+          recipe_id?: string | null
         }
         Relationships: [
+          { foreignKeyName: "diary_entries_recipe_id_fkey"; columns: ["recipe_id"]; isOneToOne: false; referencedRelation: "recipes"; referencedColumns: ["id"] },
           { foreignKeyName: "diary_entries_custom_food_id_fkey"; columns: ["custom_food_id"]; isOneToOne: false; referencedRelation: "custom_foods"; referencedColumns: ["id"] },
           { foreignKeyName: "diary_entries_food_id_fkey"; columns: ["food_id"]; isOneToOne: false; referencedRelation: "foods"; referencedColumns: ["id"] },
           { foreignKeyName: "diary_entries_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
@@ -480,25 +487,29 @@ export type Database = {
         Row: {
           id: string
           recipe_id: string
-          food_id: string
+          food_id: string | null
           quantity: number
           serving_unit: string
+          custom_food_id: string | null
         }
         Insert: {
           id?: string
           recipe_id: string
-          food_id: string
+          food_id?: string | null
           quantity: number
           serving_unit: string
+          custom_food_id?: string | null
         }
         Update: {
           id?: string
           recipe_id?: string
-          food_id?: string
+          food_id?: string | null
           quantity?: number
           serving_unit?: string
+          custom_food_id?: string | null
         }
         Relationships: [
+          { foreignKeyName: "recipe_ingredients_custom_food_id_fkey"; columns: ["custom_food_id"]; isOneToOne: false; referencedRelation: "custom_foods"; referencedColumns: ["id"] },
           { foreignKeyName: "recipe_ingredients_food_id_fkey"; columns: ["food_id"]; isOneToOne: false; referencedRelation: "foods"; referencedColumns: ["id"] },
           { foreignKeyName: "recipe_ingredients_recipe_id_fkey"; columns: ["recipe_id"]; isOneToOne: false; referencedRelation: "recipes"; referencedColumns: ["id"] },
         ]
@@ -510,6 +521,7 @@ export type Database = {
           name: string
           servings: number
           created_at: string
+          archived_at: string | null
         }
         Insert: {
           id?: string
@@ -517,6 +529,7 @@ export type Database = {
           name: string
           servings?: number
           created_at?: string
+          archived_at?: string | null
         }
         Update: {
           id?: string
@@ -524,6 +537,7 @@ export type Database = {
           name?: string
           servings?: number
           created_at?: string
+          archived_at?: string | null
         }
         Relationships: [
           { foreignKeyName: "recipes_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },

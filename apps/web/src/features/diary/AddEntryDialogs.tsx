@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import type { ActiveGroup } from '../profile/displaySettings'
-import { addBiometric, addExercise, addFoodEntry, addNote, diaryQueryKey } from './api'
+import { addBiometric, addExercise, addFoodEntries, addNote, diaryQueryKey } from './api'
 import { BiometricDialog } from './BiometricDialog'
 import { ExerciseDialog } from './ExerciseDialog'
-import { FoodDialog, type FoodToAdd } from './FoodDialog'
+import { FoodDialog, type FoodSelection, type FoodToLog } from './FoodDialog'
 import { NoteDialog } from './NoteDialog'
 
 export type EntryKind = 'food' | 'note' | 'exercise' | 'biometric'
@@ -15,10 +15,12 @@ type Props = {
   day: string
   groups: ActiveGroup[]
   units: 'imperial' | 'metric'
+  /** Opens the food dialog straight to this food, meal or recipe. */
+  initialFood?: FoodSelection | null
 }
 
 /** The four "add to diary" dialogs, used by the diary and the dashboard's quick-add bar. */
-export function AddEntryDialogs({ open, onClose, userId, day, groups, units }: Props) {
+export function AddEntryDialogs({ open, onClose, userId, day, groups, units, initialFood }: Props) {
   const queryClient = useQueryClient()
 
   // Anything logged can change the diary for that day and every dashboard card.
@@ -29,23 +31,14 @@ export function AddEntryDialogs({ open, onClose, userId, day, groups, units }: P
     ])
   }
 
-  async function handleAddFood(f: FoodToAdd) {
-    await addFoodEntry({
-      userId,
-      day,
-      food: { id: f.food.id, isCustom: f.food.kind === 'custom' },
-      group: f.group.index,
-      groupName: f.group.name,
-      quantity: f.quantity,
-      servingUnit: f.servingUnit,
-      nutrients: f.nutrients,
-    })
-    await refresh()
+  async function handleAddFood(f: FoodToLog) {
+    await addFoodEntries({ userId, day, group: f.group.index, groupName: f.group.name, entries: f.entries })
+    await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ['foods', userId] })])
   }
 
   return (
     <>
-      <FoodDialog open={open === 'food'} onClose={onClose} userId={userId} groups={groups} defaultGroup={1} onAdd={handleAddFood} />
+      <FoodDialog open={open === 'food'} onClose={onClose} userId={userId} groups={groups} defaultGroup={1} onAdd={handleAddFood} initial={initialFood} />
       <ExerciseDialog
         open={open === 'exercise'}
         onClose={onClose}

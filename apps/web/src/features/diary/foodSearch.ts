@@ -1,4 +1,4 @@
-import type { NutrientMap } from '@vitalog/shared'
+import type { FoodRef, NutrientMap, ServingInfo } from '@vitalog/shared'
 import { supabase } from '../../lib/supabase'
 
 export type FoodFilter = 'all' | 'verified' | 'branded' | 'custom'
@@ -34,7 +34,13 @@ export async function searchFoods(userId: string, query: string, filter: FoodFil
   const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
   const custom =
     filter === 'all' || filter === 'custom'
-      ? supabase.from('custom_foods').select('id, name, brand, serving_size, serving_unit').eq('user_id', userId).ilike('name', pattern).limit(50)
+      ? supabase
+          .from('custom_foods')
+          .select('id, name, brand, serving_size, serving_unit')
+          .eq('user_id', userId)
+          .is('archived_at', null)
+          .ilike('name', pattern)
+          .limit(50)
       : null
 
   const [usdaRes, customRes] = await Promise.all([usda, custom])
@@ -61,7 +67,12 @@ export async function searchFoods(userId: string, query: string, filter: FoodFil
   ]
 }
 
-/** Per-100 g nutrient values for a food. */
+/** The food as a reference to store, and the serving details its nutrients are measured in. */
+export function asFood(f: FoodResult): FoodRef & ServingInfo {
+  return { kind: f.kind === 'custom' ? 'custom' : 'usda', id: f.id, servingSize: f.servingSize, servingUnit: f.servingUnit }
+}
+
+/** A food's stored nutrient values: per 100 g for USDA foods, per serving for custom foods. */
 export async function fetchFoodNutrients(food: Pick<FoodResult, 'id' | 'kind'>): Promise<NutrientMap> {
   const res =
     food.kind === 'custom'

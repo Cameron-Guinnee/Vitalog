@@ -42,7 +42,7 @@ export async function fetchDiaryDay(userId: string, day: string): Promise<DiaryD
   const [foods, biometrics, exercise, notes] = await Promise.all([
     supabase
       .from('diary_entries')
-      .select('id, meal_group, quantity, serving_unit, foods (name), custom_foods (name), diary_nutrient_values (nutrient_id, value)')
+      .select('id, meal_group, quantity, serving_unit, foods (name), custom_foods (name), recipes (name), diary_nutrient_values (nutrient_id, value)')
       .eq('user_id', userId)
       .gte('logged_at', start)
       .lt('logged_at', end)
@@ -82,7 +82,7 @@ export async function fetchDiaryDay(userId: string, day: string): Promise<DiaryD
       type: 'food',
       id: e.id,
       group: e.meal_group ?? 0,
-      name: e.foods?.name ?? e.custom_foods?.name ?? 'Unknown food',
+      name: e.foods?.name ?? e.custom_foods?.name ?? e.recipes?.name ?? 'Unknown food',
       quantity: e.quantity,
       servingUnit: e.serving_unit,
       calories: Math.round(n[NUTRIENT.energy] ?? 0),
@@ -108,40 +108,53 @@ export async function fetchDiaryDay(userId: string, day: string): Promise<DiaryD
   return { entries, nutrients: sumNutrients(perEntry), caloriesBurned }
 }
 
-export type NewFoodEntry = {
-  userId: string
-  day: string
-  food: { id: string; isCustom: boolean }
-  group: number
-  groupName: string
-  quantity: number
-  servingUnit: string
-  nutrients: NutrientMap
-}
+/** What a diary food entry points at: a USDA food, a custom food or a recipe. */
+export type LoggedItem = { kind: 'usda' | 'custom' | 'recipe'; id: string }
 
-export async function addFoodEntry(e: NewFoodEntry) {
-  const { data: entry, error } = await supabase
+export type NewFoodEntry = { item: LoggedItem; quantity: number; servingUnit: string; nutrients: NutrientMap }
+
+export type FoodEntriesInput = { userId: string; day: string; group: number; groupName: string; entries: NewFoodEntry[] }
+
+/**
+ * Logs one or more foods to a diary group, such as every item of a meal. If any
+ * nutrients fail to save, all of the new entries are removed again.
+ */
+export async function addFoodEntries(e: FoodEntriesInput) {
+  if (!e.entries.length) return
+  const loggedAt = timestampForDay(e.day)
+  const { data: created, error } = await supabase
     .from('diary_entries')
-    .insert({
-      user_id: e.userId,
-      food_id: e.food.isCustom ? null : e.food.id,
-      custom_food_id: e.food.isCustom ? e.food.id : null,
-      meal_group: e.group,
-      meal_type: e.groupName.toLowerCase(),
-      quantity: e.quantity,
-      serving_unit: e.servingUnit,
-      logged_at: timestampForDay(e.day),
-    })
+    .insert(
+      e.entries.map((x) => ({
+        user_id: e.userId,
+        food_id: x.item.kind === 'usda' ? x.item.id : null,
+        custom_food_id: x.item.kind === 'custom' ? x.item.id : null,
+        recipe_id: x.item.kind === 'recipe' ? x.item.id : null,
+        meal_group: e.group,
+        meal_type: e.groupName.toLowerCase(),
+        quantity: x.quantity,
+        serving_unit: x.servingUnit,
+        logged_at: loggedAt,
+      })),
+    )
     .select('id')
-    .single()
   if (error) throw error
 
-  const rows = Object.entries(e.nutrients).map(([id, value]) => ({ diary_entry_id: entry.id, nutrient_id: Number(id), value }))
+  // Inserted rows come back in the order they were sent.
+  const rows = (created ?? []).flatMap((entry, i) =>
+    Object.entries(e.entries[i]!.nutrients).map(([id, value]) => ({ diary_entry_id: entry.id, nutrient_id: Number(id), value })),
+  )
   if (rows.length) {
     const { error: nutrientError } = await supabase.from('diary_nutrient_values').insert(rows)
     if (nutrientError) {
-      // Don't leave an entry with no nutrients behind.
-      await supabase.from('diary_entries').delete().eq('id', entry.id)
+      // Don't leave entries with no nutrients behind.
+      await supabase
+        .from('diary_entries')
+        .delete()
+        .in(
+          'id',
+          (created ?? []).map((c) => c.id),
+        )
       throw nutrientError
     }
   }

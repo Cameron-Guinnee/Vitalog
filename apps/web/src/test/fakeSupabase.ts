@@ -24,6 +24,7 @@ export function createFakeSupabase() {
     const call: Call = { table, op: 'select', filters: [] }
     let single = false
     let maybeSingle = false
+    let returning = false
     let head = false
     let range: [number, number] | null = null
 
@@ -41,7 +42,10 @@ export function createFakeSupabase() {
         return { data: range ? rows.slice(range[0], range[1] + 1) : rows, error: null }
       }
       if (state.writeError) return { data: null, error: state.writeError }
-      return { data: single ? { id: `new-${state.nextId++}` } : null, error: null }
+      if (single) return { data: { id: `new-${state.nextId++}` }, error: null }
+      // An insert read back without single() returns one row per inserted row.
+      if (returning) return { data: (Array.isArray(call.payload) ? call.payload : [call.payload]).map(() => ({ id: `new-${state.nextId++}` })), error: null }
+      return { data: null, error: null }
     }
 
     const builder: Record<string, unknown> = {
@@ -70,6 +74,7 @@ export function createFakeSupabase() {
     // Reading back an insert keeps it a write; on its own, select starts a read.
     builder.select = (_columns?: string, options?: { head?: boolean }) => {
       head = options?.head ?? false
+      if (call.op !== 'select') returning = true
       return builder
     }
     for (const f of ['eq', 'gte', 'lt', 'lte', 'in', 'is', 'not', 'order', 'limit', 'ilike', 'textSearch']) {

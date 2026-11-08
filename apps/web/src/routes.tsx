@@ -8,6 +8,11 @@ import { ResetPassword } from './pages/auth/ResetPassword'
 import { Signup } from './pages/auth/Signup'
 import { ComingSoon } from './pages/ComingSoon'
 import { Diary } from './pages/Diary'
+import { CustomFoods } from './pages/foods/CustomFoods'
+import { CustomMeals } from './pages/foods/CustomMeals'
+import { CustomRecipes } from './pages/foods/CustomRecipes'
+import { RepeatItems } from './pages/foods/RepeatItems'
+import { SearchFoods } from './pages/foods/SearchFoods'
 import { NotFound } from './pages/NotFound'
 import { Onboarding } from './pages/Onboarding'
 
@@ -20,7 +25,15 @@ const lazyPages: RouteObject[] = [
   { path: '/trends/snapshots', lazy: async () => ({ Component: (await import('./pages/trends/Snapshots')).Snapshots }) },
 ]
 
-const PORTED = new Set(['/diary', ...lazyPages.map((r) => r.path)])
+const foodPages: RouteObject[] = [
+  { path: '/foods/custom-foods', element: <CustomFoods /> },
+  { path: '/foods/custom-meals', element: <CustomMeals /> },
+  { path: '/foods/custom-recipes', element: <CustomRecipes /> },
+  { path: '/foods/repeat-items', element: <RepeatItems /> },
+  { path: '/foods/search', element: <SearchFoods /> },
+]
+
+const PORTED = new Set(['/diary', ...[...lazyPages, ...foodPages].map((r) => r.path)])
 
 // Every other sidebar destination gets a placeholder until its screen is ported.
 const placeholders: RouteObject[] = NAV.flatMap((item) => (item.children ?? [{ path: item.path! }]).map((c) => c.path))
@@ -48,7 +61,7 @@ export const routes: RouteObject[] = [
         children: [
           {
             element: <AppShell />,
-            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...placeholders],
+            children: [{ path: '/diary', element: <Diary /> }, ...lazyPages, ...foodPages, ...placeholders],
           },
         ],
       },

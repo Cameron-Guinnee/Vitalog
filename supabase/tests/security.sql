@@ -5,6 +5,7 @@ insert into auth.users values
   ('11111111-1111-1111-1111-111111111111', 'a@example.com'),
   ('22222222-2222-2222-2222-222222222222', 'b@example.com');
 insert into public.foods (name) values ('Apple');
+insert into public.nutrients (id, name, unit, category) values (1008, 'Energy', 'kcal', 'General');
 
 -- Signup creates a free profile.
 do $$ begin
@@ -40,6 +41,22 @@ do $$ begin
   exception when insufficient_privilege then null;
   end;
 
+  -- Custom foods, recipes and their nutrients.
+  insert into public.custom_foods (id, user_id, name) values ('aaaaaaaa-0000-0000-0000-000000000001', auth.uid(), 'Bread');
+  insert into public.custom_food_nutrient_values values ('aaaaaaaa-0000-0000-0000-000000000001', 1008, 120);
+  update public.custom_food_nutrient_values set value = 130;
+  assert (select value from public.custom_food_nutrient_values) = 130, 'a user should be able to edit their custom food''s nutrients';
+  insert into public.recipes (id, user_id, name) values ('bbbbbbbb-0000-0000-0000-000000000001', auth.uid(), 'Toast');
+  insert into public.recipe_ingredients (recipe_id, custom_food_id, quantity, serving_unit)
+    values ('bbbbbbbb-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'serving');
+  begin
+    insert into public.recipe_ingredients (recipe_id, quantity, serving_unit) values ('bbbbbbbb-0000-0000-0000-000000000001', 1, 'serving');
+    raise exception 'a recipe ingredient was saved without a food';
+  exception when check_violation then null;
+  end;
+  insert into public.diary_entries (user_id, recipe_id, meal_type, quantity, serving_unit, logged_at)
+    values (auth.uid(), 'bbbbbbbb-0000-0000-0000-000000000001', 'lunch', 1, 'serving', now());
+
   insert into public.biometric_snapshots (user_id, metrics) values (auth.uid(), '{"weight": {"value": 180, "unit": "lbs"}}');
   begin
     insert into public.biometric_snapshots (user_id) values ('22222222-2222-2222-2222-222222222222');
@@ -54,11 +71,15 @@ set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 do $$ begin
   assert (select count(*) from public.biometric_snapshots) = 0, 'a user should not see another user''s snapshots';
   delete from public.biometric_snapshots;
+  assert (select count(*) from public.custom_food_nutrient_values) = 0, 'a user should not see another user''s custom food nutrients';
+  update public.custom_food_nutrient_values set value = 1;
+  assert (select count(*) from public.recipe_ingredients) = 0, 'a user should not see another user''s recipe ingredients';
 end $$;
 
 reset role;
 do $$ begin
   assert (select count(*) from public.biometric_snapshots) = 1, 'a user should not be able to delete another user''s snapshots';
+  assert (select value from public.custom_food_nutrient_values) = 130, 'a user should not be able to edit another user''s custom food nutrients';
 end $$;
 set role authenticated;
 

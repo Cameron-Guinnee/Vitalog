@@ -75,8 +75,8 @@ describe('diary', () => {
     fake.current.state.rows = {
       foods: [{ id: 'f1', name: 'Rolled oats', brand: null, is_verified: true, serving_size: 40, serving_unit: 'g' }],
       food_nutrient_values: [
-        { nutrient_id: NUTRIENT.energy, value: 389 },
-        { nutrient_id: NUTRIENT.protein, value: 16.9 },
+        { food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 389 },
+        { food_id: 'f1', nutrient_id: NUTRIENT.protein, value: 16.9 },
       ],
     }
     renderApp('/diary?date=2026-11-01')
@@ -98,9 +98,9 @@ describe('diary', () => {
     expect(entry).toMatchObject({
       table: 'diary_entries',
       op: 'insert',
-      payload: { user_id: user.id, food_id: 'f1', custom_food_id: null, meal_group: 1, meal_type: 'breakfast', quantity: 2, serving_unit: '100 g' },
+      payload: [{ user_id: user.id, food_id: 'f1', custom_food_id: null, recipe_id: null, meal_group: 1, meal_type: 'breakfast', quantity: 2, serving_unit: '100 g' }],
     })
-    expect(toDayKey(new Date((entry!.payload as { logged_at: string }).logged_at))).toBe('2026-11-01')
+    expect(toDayKey(new Date((entry!.payload as { logged_at: string }[])[0]!.logged_at))).toBe('2026-11-01')
     expect(nutrients).toMatchObject({ table: 'diary_nutrient_values', op: 'insert' })
     expect(nutrients!.payload).toEqual(
       expect.arrayContaining([
@@ -113,7 +113,7 @@ describe('diary', () => {
   it('removes the entry it was not able to finish saving', async () => {
     fake.current.state.rows = {
       foods: [{ id: 'f1', name: 'Rolled oats', brand: null, is_verified: true, serving_size: null, serving_unit: null }],
-      food_nutrient_values: [{ nutrient_id: NUTRIENT.energy, value: 389 }],
+      food_nutrient_values: [{ food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 389 }],
     }
     renderApp('/diary')
     await userEvent.click(await screen.findByRole('button', { name: 'Food' }))
@@ -144,7 +144,7 @@ describe('diary', () => {
     }) as typeof from
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add to diary' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Couldn’t add this food')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Couldn’t add this to your diary')
     expect(fake.current.state.calls.map((c) => `${c.op} ${c.table}`)).toEqual([
       'insert diary_entries',
       'insert diary_nutrient_values',
@@ -262,10 +262,10 @@ describe('app shell', () => {
   it('links to every section, with placeholders for screens not ported yet', async () => {
     const { router } = renderApp('/diary')
     const nav = await screen.findByRole('navigation', { name: 'Main' })
-    await userEvent.click(within(nav).getByRole('button', { name: 'Foods' }))
-    await userEvent.click(within(nav).getByRole('link', { name: 'Custom meals' }))
-    expect(router.state.location.pathname).toBe('/foods/custom-meals')
-    expect(screen.getByRole('heading', { name: 'Custom meals' })).toBeInTheDocument()
+    await userEvent.click(within(nav).getByRole('button', { name: 'More' }))
+    await userEvent.click(within(nav).getByRole('link', { name: 'Display settings' }))
+    expect(router.state.location.pathname).toBe('/more/display')
+    expect(screen.getByRole('heading', { name: 'Display settings' })).toBeInTheDocument()
     expect(screen.getByText(/being rebuilt/)).toBeInTheDocument()
   })
 
