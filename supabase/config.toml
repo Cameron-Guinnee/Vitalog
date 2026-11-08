@@ -1,0 +1,3 @@
+# Supabase CLI settings. Run `supabase link --project-ref <ref>` to connect this repo
+# to the live project; the CLI fills in defaults for everything not set here.
+project_id = "vitalog"
