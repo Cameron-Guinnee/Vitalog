@@ -19,7 +19,7 @@ A personal health tracker for food, calories, weight, exercise, sleep, fasting, 
 
 </details>
 
-This is the second version of Vitalog. The first was a Tauri desktop app written in Vue ([Cameron-Guinnee/vitalog](https://github.com/Cameron-Guinnee/vitalog)). This version rebuilds it as a React web app on the same Supabase backend, with desktop and mobile apps to follow.
+This is the second version of Vitalog. The first was a Tauri desktop app written in Vue ([Cameron-Guinnee/vitalog](https://github.com/Cameron-Guinnee/vitalog-legacy)). This version rebuilds it as a React web app on the same Supabase backend, with desktop and mobile apps to follow.
 
 ## Repository layout
 
