@@ -1,3 +1,4 @@
+import { amountText } from '@vitalog/shared'
 import { Activity, Apple, ChevronDown, Dumbbell, StickyNote, X } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '../../lib/utils'
@@ -11,7 +12,7 @@ function EntryRow({ entry, onDelete }: { entry: DiaryEntry; onDelete: () => void
     case 'food':
       icon = <Apple size={16} className="text-success" />
       title = entry.name
-      detail = `${entry.quantity} ${entry.servingUnit}`
+      detail = amountText(entry.quantity, entry.servingUnit)
       amount = (
         <>
           <span>{entry.calories} kcal</span>

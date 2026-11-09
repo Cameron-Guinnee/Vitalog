@@ -1,6 +1,6 @@
 import type { NutrientMap } from './nutrients'
 import { describe, expect, it } from 'vitest'
-import { amountUnitLabel, nutrientsForAmount, servingOptionLabel, supports100g, totalNutrients } from './foods'
+import { amountText, amountUnitLabel, nutrientsForAmount, servingOptionLabel, supports100g, totalNutrients } from './foods'
 
 const usda = { kind: 'usda' as const, id: 'u', servingSize: 40, servingUnit: 'g' }
 const label = { kind: 'custom' as const, id: 'c', servingSize: 1, servingUnit: 'cup' }
@@ -29,6 +29,20 @@ describe('nutrientsForAmount', () => {
     expect(amountUnitLabel(usda, '100g')).toBe('100 g')
     expect(servingOptionLabel(label)).toBe('serving (1 cup)')
     expect(servingOptionLabel({ ...usda, servingSize: null })).toBe('100 g')
+  })
+
+  it('shows a USDA serving as its household measure with the weight', () => {
+    const apple = { kind: 'usda' as const, id: 'a', servingSize: 109.5, servingUnit: '1 cup, sliced' }
+    expect(servingOptionLabel(apple)).toBe('1 cup, sliced (109.5 g)')
+    expect(servingOptionLabel(usda)).toBe('serving (40 g)')
+  })
+
+  it('writes amounts whose unit carries its own number with a ×', () => {
+    expect(amountText(2, '1 cup, sliced')).toBe('2 × 1 cup, sliced')
+    expect(amountText(1, '1/2 cup')).toBe('1 × 1/2 cup')
+    expect(amountText(1.5, '100 g')).toBe('1.5 × 100 g')
+    expect(amountText(2, 'serving')).toBe('2 servings')
+    expect(amountText(2, 'cup')).toBe('2 cup')
   })
 
   it('totals a list of portions', () => {

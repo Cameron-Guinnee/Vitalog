@@ -1,4 +1,4 @@
-import { gramsFor, scaleNutrients, sumNutrients, type NutrientMap } from './nutrients'
+import { gramsFor, round1, scaleNutrients, sumNutrients, type NutrientMap } from './nutrients'
 
 /**
  * Where a food's nutrients come from. USDA foods store nutrients per 100 g and a
@@ -35,10 +35,15 @@ export function amountUnitLabel(food: ServingInfo, unit: AmountUnit): string {
   return food.servingUnit && food.servingUnit !== 'g' ? food.servingUnit : 'serving'
 }
 
-/** The serving option's label in a unit picker, such as "serving (30 g)". */
+/**
+ * The serving option's label in a unit picker, such as "serving (30 g)".
+ * USDA foods keep the serving's weight in grams and its household measure, such as
+ * "1 cup, sliced", as the unit, so they read "1 cup, sliced (110 g)".
+ */
 export function servingOptionLabel(food: ServingInfo): string {
   if (food.kind === 'usda' && !food.servingSize) return '100 g'
   if (!food.servingSize) return food.servingUnit ?? 'serving'
+  if (food.kind === 'usda' && food.servingUnit && food.servingUnit !== 'g') return `${food.servingUnit} (${round1(food.servingSize)} g)`
   return `serving (${food.servingSize} ${food.servingUnit ?? 'g'})`
 }
 
@@ -58,6 +63,7 @@ export function multiplyNutrients(n: NutrientMap, factor: number): NutrientMap {
 
 /** An amount for display, such as "2 servings", "0.5 cup" or "1 × 100 g". */
 export function amountText(quantity: number, unitLabel: string): string {
-  if (unitLabel === '100 g') return `${quantity} × 100 g`
+  // A unit that starts with its own amount, such as "100 g" or "1 cup", reads "2 × 1 cup".
+  if (/^[\d./]/.test(unitLabel)) return `${quantity} × ${unitLabel}`
   return `${quantity} ${unitLabel === 'serving' && quantity !== 1 ? 'servings' : unitLabel}`
 }
