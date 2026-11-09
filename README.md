@@ -71,9 +71,11 @@ AWS free-plan accounts are refused `cdk bootstrap` and the GitHub sign-in the CD
 pnpm --filter @vitalog/infra setup-site -- --profile vitalog
 ```
 
+Some new accounts are also refused S3 in us-east-1. Add `--region us-east-2`, or another region that works, to put the bucket there; CloudFront still serves it worldwide.
+
 It creates the private bucket, CloudFront with the same app route rewrite and security headers, and an IAM user, `vitalog-github-deploy`, that can only upload the site and clear the cache. It is safe to run again: it only creates what's missing. When it finishes it prints what to add in GitHub under Settings → Secrets and variables → Actions:
 
-- **Variables:** `SITE_BUCKET` and `DISTRIBUTION_ID`. Leave `AWS_DEPLOY_ROLE_ARN` unset.
+- **Variables:** `SITE_BUCKET` and `DISTRIBUTION_ID`, plus `SITE_REGION` if you used `--region`. Leave `AWS_DEPLOY_ROLE_ARN` unset.
 - **Secrets:** `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. The secret key is shown only once; run the script again with `--new-key` to replace it.
 
 Then carry on from step 3 above, using the site address the script prints. The script doesn't change a distribution that already exists, so after changing its settings, edit the distribution in the CloudFront console or delete it and run the script again.

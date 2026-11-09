@@ -5,6 +5,7 @@
 // Safe to run again: it finds what already exists and only creates what's missing.
 //
 //   pnpm --filter @vitalog/infra setup-site -- --profile vitalog
+//   add --region us-east-2 to put the bucket in another region, for accounts that block us-east-1
 //   add --new-key to replace the deploy user's access key
 import {
   CloudFrontClient,
@@ -28,6 +29,7 @@ import {
   PutUserPolicyCommand,
 } from '@aws-sdk/client-iam'
 import {
+  type BucketLocationConstraint,
   CreateBucketCommand,
   HeadBucketCommand,
   PutBucketOwnershipControlsCommand,
@@ -40,16 +42,19 @@ import { fromIni } from '@aws-sdk/credential-providers'
 import { SPA_REWRITE } from '../lib/site-stack'
 import { NAMES, bucketNameFor, bucketPolicy, deployPolicy, distributionConfig } from '../lib/plain-config'
 
-const REGION = 'us-east-1'
+// CloudFront and IAM are global services whose API lives in us-east-1. Only the bucket can move.
+const GLOBAL_REGION = 'us-east-1'
 const args = process.argv.slice(2)
-const profile = args.includes('--profile') ? args[args.indexOf('--profile') + 1] : 'vitalog'
+const option = (name: string, fallback: string) => (args.includes(name) ? (args[args.indexOf(name) + 1] ?? fallback) : fallback)
+const profile = option('--profile', 'vitalog')
+const bucketRegion = option('--region', GLOBAL_REGION)
 const newKey = args.includes('--new-key')
 
 const credentials = fromIni({ profile })
-const s3 = new S3Client({ region: REGION, credentials })
-const cloudfront = new CloudFrontClient({ region: REGION, credentials })
-const iam = new IAMClient({ region: REGION, credentials })
-const sts = new STSClient({ region: REGION, credentials })
+const s3 = new S3Client({ region: bucketRegion, credentials })
+const cloudfront = new CloudFrontClient({ region: GLOBAL_REGION, credentials })
+const iam = new IAMClient({ region: GLOBAL_REGION, credentials })
+const sts = new STSClient({ region: GLOBAL_REGION, credentials })
 
 const log = (msg: string) => console.log(`  ${msg}`)
 const errorName = (err: unknown) => (err as { name?: string }).name ?? ''
@@ -75,7 +80,9 @@ async function ensureBucket(bucket: string) {
     log(`bucket ${bucket} already exists`)
   } catch (err) {
     if (!['NotFound', 'NoSuchBucket'].includes(errorName(err))) throw err
-    await s3.send(new CreateBucketCommand({ Bucket: bucket }))
+    // us-east-1 is the default and must not be named; every other region must be.
+    const location = bucketRegion === GLOBAL_REGION ? undefined : { LocationConstraint: bucketRegion as BucketLocationConstraint }
+    await s3.send(new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: location }))
     log(`created bucket ${bucket}`)
   }
   await s3.send(
@@ -150,7 +157,7 @@ async function ensureDistribution(bucket: string, originAccessControlId: string,
   }
   const created = await cloudfront.send(
     new CreateDistributionCommand({
-      DistributionConfig: distributionConfig({ bucket, region: REGION, originAccessControlId, rewriteFunctionArn, callerReference: `vitalog-${Date.now()}` }),
+      DistributionConfig: distributionConfig({ bucket, region: bucketRegion, originAccessControlId, rewriteFunctionArn, callerReference: `vitalog-${Date.now()}` }),
     }),
   )
   const d = created.Distribution!
@@ -183,7 +190,7 @@ async function ensureDeployUser(bucket: string, distributionArn: string) {
 }
 
 async function main() {
-  console.log(`Setting up Vitalog hosting with the "${profile}" profile in ${REGION}\n`)
+  console.log(`Setting up Vitalog hosting with the "${profile}" profile, with the bucket in ${bucketRegion}\n`)
   const account = await step('Checking the AWS sign-in', async () => (await sts.send(new GetCallerIdentityCommand({}))).Account!)
   const bucket = bucketNameFor(account)
 
@@ -201,6 +208,7 @@ async function main() {
   console.log('  Variables')
   console.log(`    SITE_BUCKET      = ${bucket}`)
   console.log(`    DISTRIBUTION_ID  = ${dist.id}`)
+  if (bucketRegion !== GLOBAL_REGION) console.log(`    SITE_REGION      = ${bucketRegion}`)
   if (key) {
     console.log('  Secrets (the secret key is shown only this once)')
     console.log(`    AWS_ACCESS_KEY_ID     = ${key.id}`)
