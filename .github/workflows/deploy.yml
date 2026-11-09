@@ -1,0 +1,103 @@
+name: Deploy
+
+# Publishes the web app after CI passes on main. GitHub signs in to AWS one of two ways:
+# - with a short-lived token for the role the CDK stack created (AWS_DEPLOY_ROLE_ARN), so
+#   no AWS keys are stored here; or
+# - on accounts that block that, such as AWS free-plan accounts, with the access key of
+#   the deploy user scripts/setup-site.ts created (AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY).
+# Either way it can only upload to the site bucket and clear the CloudFront cache.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: # redeploy main by hand from the Actions tab
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # needed to request the token AWS checks, when signing in with the role
+
+jobs:
+  deploy:
+    # Only after a successful CI run for a push to main, never for pull requests.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the deploy settings are in place
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          KEY_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUCKET: ${{ vars.SITE_BUCKET }}
+          DISTRIBUTION: ${{ vars.DISTRIBUTION_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          missing=""
+          for name in BUCKET DISTRIBUTION SUPABASE_URL SUPABASE_ANON_KEY; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -z "$ROLE" ] && { [ -z "$KEY_ID" ] || [ -z "$KEY_SECRET" ]; }; then
+            missing="$missing AWS_DEPLOY_ROLE_ARN (or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY)"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing deploy settings:$missing. See 'Deploying' in the README."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          # The commit CI tested, not whatever main points at now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter @vitalog/web build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Sign in to AWS with the deploy role
+        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Sign in to AWS with the deploy user's key
+        if: vars.AWS_DEPLOY_ROLE_ARN == ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload
+        env:
+          BUCKET: ${{ vars.SITE_BUCKET }}
+        working-directory: apps/web/dist
+        run: |
+          # Built files have a content hash in their names and never change, so browsers
+          # can keep them for a year. Old ones are left in place: a tab opened before
+          # this deploy may still ask for them.
+          aws s3 sync . "s3://$BUCKET" --exclude index.html \
+            --cache-control "public, max-age=31536000, immutable"
+          # The page itself is checked on every visit, so a deploy shows up straight away.
+          aws s3 cp index.html "s3://$BUCKET/index.html" \
+            --cache-control "no-cache" --content-type "text/html; charset=utf-8"
+
+      # App routes are rewritten to /index.html before the cache lookup, so this one
+      # path covers every page.
+      - name: Clear the CloudFront cache
+        env:
+          DISTRIBUTION: ${{ vars.DISTRIBUTION_ID }}
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/index.html"

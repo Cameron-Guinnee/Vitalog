@@ -4,5 +4,5 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["bin", "lib", "test"]
+  "include": ["bin", "lib", "scripts", "test"]
 }

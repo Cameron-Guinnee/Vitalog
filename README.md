@@ -63,6 +63,21 @@ You need the AWS CLI signed in to your account (for example with `aws configure 
 3. Run the `Deploy` workflow from the Actions tab, then open the `SiteUrl`.
 4. In Supabase, open Authentication → URL Configuration. Set **Site URL** to the `SiteUrl`, and add the `SiteUrl` followed by `/**` to **Redirect URLs**. Keep `http://localhost:5173/**` for local development.
 
+### Accounts that block CloudFormation
+
+AWS free-plan accounts are refused `cdk bootstrap` and the GitHub sign-in the CDK stack uses. On those, create the same hosting with plain API calls instead:
+
+```bash
+pnpm --filter @vitalog/infra setup-site -- --profile vitalog
+```
+
+It creates the private bucket, CloudFront with the same app route rewrite and security headers, and an IAM user, `vitalog-github-deploy`, that can only upload the site and clear the cache. It is safe to run again: it only creates what's missing. When it finishes it prints what to add in GitHub under Settings → Secrets and variables → Actions:
+
+- **Variables:** `SITE_BUCKET` and `DISTRIBUTION_ID`. Leave `AWS_DEPLOY_ROLE_ARN` unset.
+- **Secrets:** `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. The secret key is shown only once; run the script again with `--new-key` to replace it.
+
+Then carry on from step 3 above, using the site address the script prints. The script doesn't change a distribution that already exists, so after changing its settings, edit the distribution in the CloudFront console or delete it and run the script again.
+
 ### Afterwards
 
 Every push to `main` deploys on its own once CI passes. The deploy role can only upload files and clear the cache, so changes to `infra/` are applied by running `pnpm cdk deploy --profile vitalog` again; `pnpm cdk diff --profile vitalog` shows what would change first.
