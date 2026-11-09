@@ -2,8 +2,6 @@
 
 A personal health tracker for food, calories, weight, exercise, sleep, fasting, water and biometrics, built web-first.
 
-**[Live demo](https://YOUR-CLOUDFRONT-ADDRESS)** · React 19, TypeScript, Supabase (Postgres with row-level security), AWS S3 and CloudFront, GitHub Actions
-
 ![The Vitalog dashboard](docs/screenshots/dashboard.png)
 
 <details>
