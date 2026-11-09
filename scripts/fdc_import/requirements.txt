@@ -1,0 +1,7 @@
+# Install with: pip install -r scripts/fdc_import/requirements.txt
+ijson>=3.3        # streams the multi-GB Branded Foods file
+orjson>=3.9       # fast loading of the smaller datasets
+requests>=2.31    # downloads
+supabase>=2.0     # uploads
+python-dotenv>=1.0
+pytest>=8         # tests

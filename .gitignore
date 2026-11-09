@@ -16,3 +16,8 @@ supabase/.branches/
 backup-*.sql
 *.dump
 cdk.out/
+
+# Food import: downloaded USDA datasets and Python caches
+data/fdc/
+__pycache__/
+.pytest_cache/

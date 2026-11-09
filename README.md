@@ -13,6 +13,7 @@ This is the second version of Vitalog. The first was a Tauri desktop app written
 | `supabase/migrations` | The database schema as ordered SQL migrations |
 | `supabase/tests` | Security checks that run against the migrations in CI |
 | `infra` | The AWS hosting (S3 and CloudFront) and the GitHub deploy role, as a CDK app |
+| `scripts/fdc_import` | The Python import that loads USDA FoodData Central foods into the database |
 
 ## Getting started
 
@@ -73,6 +74,8 @@ pnpm --filter @vitalog/infra setup-site -- --profile vitalog
 
 Some new accounts are also refused S3 in us-east-1. Add `--region us-east-2`, or another region that works, to put the bucket there; CloudFront still serves it worldwide.
 
+New accounts also can't create a CloudFront distribution until AWS has verified them, which can take a day or two. If the script stops with "Your account must be verified before you can add new CloudFront resources", open an Account and billing case in AWS Support with that message, and run the script again once they confirm. It picks up where it stopped.
+
 It creates the private bucket, CloudFront with the same app route rewrite and security headers, and an IAM user, `vitalog-github-deploy`, that can only upload the site and clear the cache. It is safe to run again: it only creates what's missing. When it finishes it prints what to add in GitHub under Settings → Secrets and variables → Actions:
 
 - **Variables:** `SITE_BUCKET` and `DISTRIBUTION_ID`, plus `SITE_REGION` if you used `--region`. Leave `AWS_DEPLOY_ROLE_ARN` unset.
@@ -113,3 +116,39 @@ supabase db push   # applies the migrations after the baseline
 - Any signed-in user could set their own `subscription_tier` to `pro`. A trigger now lets only the billing service change it.
 - The signup trigger now pins its `search_path`.
 - Adds indexes for per-user, per-day lookups and drops a duplicate constraint.
+
+## Food database
+
+The `foods`, `food_nutrient_values` and `nutrients` tables are filled from the USDA's [FoodData Central](https://fdc.nal.usda.gov/download-datasets) by `scripts/fdc_import`. It uses Foundation Foods and SR Legacy by default, with Foundation Foods replacing the SR Legacy entries they supersede. Branded Foods are optional. Values are stored per 100 g. Running it again updates foods in place, matched by their FDC id.
+
+One-time setup, from the repository root, with Python 3.10 or newer:
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate   # Windows (Git Bash); on macOS and Linux: source .venv/bin/activate
+pip install -r scripts/fdc_import/requirements.txt
+cp scripts/fdc_import/.env.example scripts/fdc_import/.env   # then fill in SUPABASE_URL and SUPABASE_SERVICE_KEY
+```
+
+Then:
+
+```bash
+python -m scripts.fdc_import.run --dry-run                  # download, count, estimate the size; writes nothing
+python -m scripts.fdc_import.run                            # import Foundation Foods and SR Legacy
+python -m scripts.fdc_import.run --branded slim --dry-run   # how much slim Branded Foods would add
+python -m pytest scripts/fdc_import                         # tests
+```
+
+The datasets download into `data/fdc/`, which git ignores. If the download page changes and the links can't be found, download the JSON zips by hand into `data/fdc/` and add `--skip-download`.
+
+### Branded Foods and database size
+
+The full Branded Foods set is several GB unzipped and far more than the Supabase free plan's 500 MB. `--branded slim` keeps only what a nutrition label carries, only products sold in the US, and only the newest record for each barcode, since FoodData Central adds a new record each time a label is resubmitted. `--dry-run` prints how much space each dataset would take, using per-row costs measured with this schema, so you can decide before importing anything.
+
+To see what the database uses now, run this in the Supabase SQL editor:
+
+```sql
+select pg_size_pretty(pg_database_size(current_database())) as whole_database,
+       pg_size_pretty(pg_total_relation_size('public.foods') + pg_total_relation_size('public.food_nutrient_values')) as food_tables;
+```
+
