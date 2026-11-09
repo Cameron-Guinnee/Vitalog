@@ -15,3 +15,4 @@ supabase/.branches/
 # Database backups hold personal data; keep them out of git.
 backup-*.sql
 *.dump
+cdk.out/

@@ -12,6 +12,7 @@ This is the second version of Vitalog. The first was a Tauri desktop app written
 | `packages/shared` | Code shared by every app: database types and domain helpers |
 | `supabase/migrations` | The database schema as ordered SQL migrations |
 | `supabase/tests` | Security checks that run against the migrations in CI |
+| `infra` | The AWS hosting (S3 and CloudFront) and the GitHub deploy role, as a CDK app |
 
 ## Getting started
 
@@ -37,6 +38,36 @@ Email links (signup confirmation, password reset) send people back to the web ap
 
 - **Site URL**: the deployed site once it exists; `http://localhost:5173` until then.
 - **Redirect URLs**: add `http://localhost:5173/**` for local development, and the deployed origin followed by `/**` later.
+
+## Deploying
+
+The web app is served from a private S3 bucket through CloudFront. The AWS resources are defined with the CDK in `infra/`, and the `Deploy` workflow publishes each commit on `main` once CI passes.
+
+### One-time setup
+
+You need the AWS CLI signed in to your account (for example with `aws configure sso`, using a profile called `vitalog`).
+
+1. Create the AWS resources. `bootstrap` is only needed the first time in an account.
+   ```bash
+   cd infra
+   pnpm cdk bootstrap --profile vitalog
+   pnpm cdk deploy --profile vitalog
+   ```
+   When it finishes it prints four outputs: `SiteUrl`, `BucketName`, `DistributionId` and `DeployRoleArn`.
+2. In GitHub, open Settings → Secrets and variables → Actions → **Variables** and add:
+   - `AWS_DEPLOY_ROLE_ARN`: the `DeployRoleArn` output
+   - `SITE_BUCKET`: the `BucketName` output
+   - `DISTRIBUTION_ID`: the `DistributionId` output
+
+   The build also uses the `SUPABASE_URL` and `SUPABASE_ANON_KEY` secrets described below.
+3. Run the `Deploy` workflow from the Actions tab, then open the `SiteUrl`.
+4. In Supabase, open Authentication → URL Configuration. Set **Site URL** to the `SiteUrl`, and add the `SiteUrl` followed by `/**` to **Redirect URLs**. Keep `http://localhost:5173/**` for local development.
+
+### Afterwards
+
+Every push to `main` deploys on its own once CI passes. The deploy role can only upload files and clear the cache, so changes to `infra/` are applied by running `pnpm cdk deploy --profile vitalog` again; `pnpm cdk diff --profile vitalog` shows what would change first.
+
+At personal or portfolio traffic, S3 and CloudFront cost cents a month or nothing at all.
 
 ## Keeping the free Supabase project awake
 
