@@ -2,7 +2,7 @@
 
 A personal health tracker for food, calories, weight, exercise, sleep, fasting, water and biometrics, built web-first.
 
-**[Live demo](https://YOUR-CLOUDFRONT-ADDRESS)** · React 19, TypeScript, Supabase (Postgres with row-level security), AWS S3 and CloudFront, GitHub Actions
+React 19, TypeScript, Supabase (Postgres with row-level security), Azure Static Web Apps, AWS CDK, GitHub Actions
 
 ![The Vitalog dashboard](docs/screenshots/dashboard.png)
 
@@ -61,9 +61,25 @@ Email links (signup confirmation, password reset) send people back to the web ap
 
 ## Deploying
 
-The web app is served from a private S3 bucket through CloudFront. The AWS resources are defined with the CDK in `infra/`, and the `Deploy` workflow publishes each commit on `main` once CI passes.
+The live site runs on **Azure Static Web Apps**, published by the `Deploy to Azure` workflow each time CI passes on `main`. The same site can also be hosted on **AWS** (a private S3 bucket behind CloudFront), defined with the CDK in `infra/` and published by the `Deploy to AWS` workflow. That workflow stays idle until its settings are added, so either host can be used, or both.
 
-### One-time setup
+Both builds need the `SUPABASE_URL` and `SUPABASE_ANON_KEY` repository secrets described under "Keeping the free Supabase project awake".
+
+### Azure Static Web Apps
+
+Page routing, caching and security headers are set in `apps/web/public/staticwebapp.config.json`: app routes such as `/diary` load `index.html`, built files are cached for a year, and the page itself is checked on every visit.
+
+1. In the [Azure portal](https://portal.azure.com), create a **Static Web App**. Choose the **Free** plan, and under deployment details choose **Other** as the source. Choosing GitHub there makes Azure commit its own workflow to the repository, and this repository already has one.
+2. When it's created, open it and choose **Manage deployment token**. Copy the token.
+3. In GitHub, open Settings → Secrets and variables → Actions → **Secrets**, and add it as `AZURE_STATIC_WEB_APPS_API_TOKEN`.
+4. Run the `Deploy to Azure` workflow from the Actions tab, then open the URL shown on the Static Web App's overview page.
+5. In Supabase, open Authentication → URL Configuration. Set **Site URL** to that URL, and add it followed by `/**` to **Redirect URLs**. Keep `http://localhost:5173/**` for local development.
+
+The free plan includes HTTPS and a custom domain, which can be added under **Custom domains**.
+
+### AWS (S3 and CloudFront)
+
+#### One-time setup
 
 You need the AWS CLI signed in to your account (for example with `aws configure sso`, using a profile called `vitalog`).
 
@@ -80,10 +96,10 @@ You need the AWS CLI signed in to your account (for example with `aws configure 
    - `DISTRIBUTION_ID`: the `DistributionId` output
 
    The build also uses the `SUPABASE_URL` and `SUPABASE_ANON_KEY` secrets described below.
-3. Run the `Deploy` workflow from the Actions tab, then open the `SiteUrl`.
+3. Run the `Deploy to AWS` workflow from the Actions tab, then open the `SiteUrl`.
 4. In Supabase, open Authentication → URL Configuration. Set **Site URL** to the `SiteUrl`, and add the `SiteUrl` followed by `/**` to **Redirect URLs**. Keep `http://localhost:5173/**` for local development.
 
-### Accounts that block CloudFormation
+#### Accounts that block CloudFormation
 
 AWS free-plan accounts are refused `cdk bootstrap` and the GitHub sign-in the CDK stack uses. On those, create the same hosting with plain API calls instead:
 
@@ -102,7 +118,7 @@ It creates the private bucket, CloudFront with the same app route rewrite and se
 
 Then carry on from step 3 above, using the site address the script prints. The script doesn't change a distribution that already exists, so after changing its settings, edit the distribution in the CloudFront console or delete it and run the script again.
 
-### Afterwards
+#### Afterwards
 
 Every push to `main` deploys on its own once CI passes. The deploy role can only upload files and clear the cache, so changes to `infra/` are applied by running `pnpm cdk deploy --profile vitalog` again; `pnpm cdk diff --profile vitalog` shows what would change first.
 
