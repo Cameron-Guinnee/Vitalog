@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy to AWS
 
 # Publishes the web app after CI passes on main. GitHub signs in to AWS one of two ways:
 # - with a short-lived token for the role the CDK stack created (AWS_DEPLOY_ROLE_ARN), so
@@ -23,8 +23,9 @@ permissions:
 
 jobs:
   deploy:
-    # Only after a successful CI run for a push to main, never for pull requests.
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    # Only after a successful CI run for a push to main, never for pull requests, and
+    # only once the AWS hosting is set up (SITE_BUCKET is set), so it stays quiet until then.
+    if: vars.SITE_BUCKET != '' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
