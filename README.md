@@ -2,7 +2,7 @@
 
 A personal health tracker for food, calories, weight, exercise, sleep, fasting, water and biometrics, built web-first.
 
-React 19, TypeScript, Supabase (Postgres with row-level security), Azure Static Web Apps, AWS CDK, GitHub Actions
+**[Live demo](https://gray-ground-0aade7510.8.azurestaticapps.net/)** · React 19, TypeScript, Supabase (Postgres with row-level security), Azure Static Web Apps, AWS CDK, GitHub Actions
 
 ![The Vitalog dashboard](docs/screenshots/dashboard.png)
 
