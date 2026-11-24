@@ -178,7 +178,11 @@ The datasets download into `data/fdc/`, which git ignores. If the download page 
 
 ### Branded Foods and database size
 
-The full Branded Foods set is several GB unzipped and far more than the Supabase free plan's 500 MB. `--branded slim` keeps only what a nutrition label carries, only products sold in the US, and only the newest record for each barcode, since FoodData Central adds a new record each time a label is resubmitted. `--dry-run` prints how much space each dataset would take, using per-row costs measured with this schema, so you can decide before importing anything.
+The full Branded Foods set is several GB unzipped. Branded foods keep only what a nutrition label carries, and they're stored compactly: one row per food in `branded_food_nutrients`, with a column per label nutrient, instead of one `food_nutrient_values` row per value. That cuts their nutrients to about a tenth of the space. The app reads every food's nutrients through the `food_nutrients` view, which combines both tables, so it doesn't matter where a food's values live.
+
+`--branded slim` also keeps only products sold in the US and only the newest record for each barcode, since FoodData Central adds a new record each time a label is resubmitted. That comes to about 416,000 foods and roughly 250 MB, which fits the Supabase free plan's 500 MB alongside everything else. `--dry-run` prints the estimate for each dataset, using per-row costs measured with this schema, so you can check before importing anything.
+
+Apply the migrations (`supabase db push`) before importing branded foods, since the import writes to `branded_food_nutrients`.
 
 To see what the database uses now, run this in the Supabase SQL editor:
 

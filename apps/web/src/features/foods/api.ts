@@ -51,7 +51,7 @@ export async function fetchStoredNutrients(foods: FoodRef[]): Promise<Map<string
   const custom = [...new Set(foods.filter((f) => f.kind === 'custom').map((f) => f.id))]
   const [u, c] = await Promise.all([
     usda.length
-      ? allPages((from, to) => supabase.from('food_nutrient_values').select('food_id, nutrient_id, value').in('food_id', usda).range(from, to))
+      ? allPages((from, to) => supabase.from('food_nutrients').select('food_id, nutrient_id, value').in('food_id', usda).range(from, to))
       : Promise.resolve([]),
     custom.length
       ? allPages((from, to) =>

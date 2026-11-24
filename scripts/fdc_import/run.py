@@ -39,7 +39,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--branded",
         choices=["none", "slim", "full"],
         default="none",
-        help="Branded Foods: none (default), slim (label nutrients, US products, newest record per barcode) or full",
+        help="Branded Foods: none (default), slim (US products, newest record per barcode) or full (every record)",
     )
     p.add_argument("--dry-run", action="store_true", help="read the datasets and estimate the database size; write nothing")
     p.add_argument("--skip-download", action="store_true", help="use the files already in the data folder")

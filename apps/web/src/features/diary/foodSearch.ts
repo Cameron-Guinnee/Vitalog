@@ -77,7 +77,7 @@ export async function fetchFoodNutrients(food: Pick<FoodResult, 'id' | 'kind'>):
   const res =
     food.kind === 'custom'
       ? await supabase.from('custom_food_nutrient_values').select('nutrient_id, value').eq('custom_food_id', food.id)
-      : await supabase.from('food_nutrient_values').select('nutrient_id, value').eq('food_id', food.id)
+      : await supabase.from('food_nutrients').select('nutrient_id, value').eq('food_id', food.id)
   if (res.error) throw res.error
   const map: NutrientMap = {}
   for (const n of res.data ?? []) map[n.nutrient_id] = n.value

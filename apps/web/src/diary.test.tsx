@@ -77,7 +77,7 @@ describe('diary', () => {
   it('adds a food to the day being viewed, scaled to the amount eaten', async () => {
     fake.current.state.rows = {
       foods: [{ id: 'f1', name: 'Rolled oats', brand: null, is_verified: true, serving_size: 40, serving_unit: 'g' }],
-      food_nutrient_values: [
+      food_nutrients: [
         { food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 389 },
         { food_id: 'f1', nutrient_id: NUTRIENT.protein, value: 16.9 },
       ],
@@ -116,7 +116,7 @@ describe('diary', () => {
   it('removes the entry it was not able to finish saving', async () => {
     fake.current.state.rows = {
       foods: [{ id: 'f1', name: 'Rolled oats', brand: null, is_verified: true, serving_size: null, serving_unit: null }],
-      food_nutrient_values: [{ food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 389 }],
+      food_nutrients: [{ food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 389 }],
     }
     renderApp('/diary')
     await userEvent.click(await screen.findByRole('button', { name: 'Food' }))

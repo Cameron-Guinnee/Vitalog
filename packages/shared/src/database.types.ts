@@ -4,6 +4,65 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      branded_food_nutrients: {
+        Row: {
+          food_id: string
+          energy: number | null
+          protein: number | null
+          fat: number | null
+          carbs: number | null
+          fiber: number | null
+          sugars: number | null
+          added_sugars: number | null
+          saturated_fat: number | null
+          trans_fat: number | null
+          cholesterol: number | null
+          sodium: number | null
+          calcium: number | null
+          iron: number | null
+          potassium: number | null
+          vitamin_d: number | null
+        }
+        Insert: {
+          food_id: string
+          energy?: number | null
+          protein?: number | null
+          fat?: number | null
+          carbs?: number | null
+          fiber?: number | null
+          sugars?: number | null
+          added_sugars?: number | null
+          saturated_fat?: number | null
+          trans_fat?: number | null
+          cholesterol?: number | null
+          sodium?: number | null
+          calcium?: number | null
+          iron?: number | null
+          potassium?: number | null
+          vitamin_d?: number | null
+        }
+        Update: {
+          food_id?: string
+          energy?: number | null
+          protein?: number | null
+          fat?: number | null
+          carbs?: number | null
+          fiber?: number | null
+          sugars?: number | null
+          added_sugars?: number | null
+          saturated_fat?: number | null
+          trans_fat?: number | null
+          cholesterol?: number | null
+          sodium?: number | null
+          calcium?: number | null
+          iron?: number | null
+          potassium?: number | null
+          vitamin_d?: number | null
+        }
+        Relationships: [
+          { foreignKeyName: "branded_food_nutrients_food_id_fkey"; columns: ["food_id"]; isOneToOne: true; referencedRelation: "foods"; referencedColumns: ["id"] },
+        ]
+      }
       biometric_snapshots: {
         Row: {
           id: string
@@ -602,7 +661,16 @@ export type Database = {
         ]
       }
     }
-    Views: { [_ in never]: never }
+    Views: {
+      food_nutrients: {
+        Row: {
+          food_id: string
+          nutrient_id: number
+          value: number
+        }
+        Relationships: []
+      }
+    }
     Functions: {
       delete_own_account: { Args: Record<PropertyKey, never>; Returns: undefined }
     }

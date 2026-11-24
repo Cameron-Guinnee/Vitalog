@@ -36,8 +36,9 @@ _DATASET_KEYS = {
 class BrandedOptions:
     """How much of Branded Foods to import.
 
-    slim=True keeps only nutrition-label nutrients, only foods sold in the US,
-    and only the newest record for each barcode, to fit a small database.
+    Branded foods always keep only nutrition-label nutrients, which is all they
+    usually have. slim=True also keeps only foods sold in the US and only the
+    newest record for each barcode.
     """
 
     slim: bool = False
@@ -165,7 +166,7 @@ def extract_branded(food: dict, options: BrandedOptions = BrandedOptions()) -> O
     if not description:
         return None
 
-    nutrients = get_nutrients(food, LABEL_NUTRIENT_IDS if options.slim else TARGET_NUTRIENT_IDS)
+    nutrients = get_nutrients(food, LABEL_NUTRIENT_IDS)
     if ENERGY not in nutrients:
         return None
 

@@ -6,6 +6,9 @@ insert into auth.users values
   ('22222222-2222-2222-2222-222222222222', 'b@example.com');
 insert into public.foods (name) values ('Apple');
 insert into public.nutrients (id, name, unit, category) values (1008, 'Energy', 'kcal', 'General');
+insert into public.food_nutrient_values select id, 1008, 52 from public.foods where name = 'Apple';
+insert into public.foods (name, source) values ('Branded bar', 'branded');
+insert into public.branded_food_nutrients (food_id, energy, protein) select id, 400, 20 from public.foods where name = 'Branded bar';
 
 -- Signup creates a free profile.
 do $$ begin
@@ -30,7 +33,10 @@ do $$ begin
 
   update public.foods set name = 'Hacked';
   delete from public.foods;
-  assert (select name from public.foods) = 'Apple', 'a user should not be able to change shared foods';
+  assert (select count(*) from public.foods where name <> 'Hacked') = 2, 'a user should not be able to change shared foods';
+  update public.branded_food_nutrients set energy = 1;
+  delete from public.branded_food_nutrients;
+  assert (select energy from public.branded_food_nutrients) = 400, 'a user should not be able to change branded food nutrients';
 
   insert into public.diary_entries (user_id, meal_type, quantity, serving_unit, logged_at)
     values (auth.uid(), 'breakfast', 1, 'g', now());
@@ -90,8 +96,13 @@ set request.jwt.claim.sub = '';
 
 do $$ begin
   update public.foods set name = 'Hacked';
-  assert (select name from public.foods) = 'Apple', 'anon should not be able to change shared foods';
-  assert (select count(*) from public.foods) = 1, 'anon should be able to read foods';
+  assert (select count(*) from public.foods where name = 'Hacked') = 0, 'anon should not be able to change shared foods';
+  update public.branded_food_nutrients set energy = 1;
+  assert (select energy from public.branded_food_nutrients) = 400, 'anon should not be able to change branded food nutrients';
+  assert (select count(*) from public.foods) = 2, 'anon should be able to read foods';
+  assert (select count(*) from public.food_nutrients) = 3, 'anon should read food nutrients from both tables through the view';
+  assert (select value from public.food_nutrients n join public.foods f on f.id = n.food_id where f.name = 'Branded bar' and n.nutrient_id = 1003) = 20,
+    'the view should give branded nutrients under their USDA ids';
   assert (select count(*) from public.diary_entries) = 0, 'anon should not see any diary entries';
 end $$;
 

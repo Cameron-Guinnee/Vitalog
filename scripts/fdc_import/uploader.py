@@ -1,7 +1,8 @@
 """uploader.py — Upsert food records into Supabase.
 
 Writes the nutrients reference table, then foods (matched on fdc_id) and their
-food_nutrient_values (matched on food_id + nutrient_id). The food tables are
+nutrients: one row per value in food_nutrient_values for USDA foods, and one row
+per food in branded_food_nutrients for branded foods. The food tables are
 read-only to app users, so this needs the service role key, which bypasses
 row-level security. Keep that key on your machine; never put it in the web app.
 """
@@ -13,7 +14,7 @@ from typing import Callable, Dict, Iterator, List
 
 from supabase import Client, create_client
 
-from .nutrients import NUTRIENT_MAP
+from .nutrients import BRANDED_COLUMNS, NUTRIENT_MAP
 
 Log = Callable[[str], None]
 
@@ -48,17 +49,36 @@ def nutrient_rows(rec: dict, food_id: str) -> List[dict]:
     return [{"food_id": food_id, "nutrient_id": nid, "value": value} for nid, value in rec["nutrients"].items()]
 
 
+def branded_row(rec: dict, food_id: str) -> dict:
+    """One branded_food_nutrients row. Every column is sent, so values a label no longer has are cleared."""
+    row: dict = {"food_id": food_id}
+    for nid, column in BRANDED_COLUMNS.items():
+        row[column] = rec["nutrients"].get(nid)
+    return row
+
+
 def upsert_foods(records: List[dict], client: Client, batch_size: int = 500) -> tuple[int, int]:
-    """Upsert records and their nutrient values. Returns (foods, nutrient values) written."""
+    """Upsert records and their nutrients. Returns (foods, nutrient values) written.
+
+    Branded foods get one branded_food_nutrients row each; other foods get a
+    food_nutrient_values row per nutrient.
+    """
     foods = 0
     values = 0
     by_fdc: Dict[int, dict] = {rec["fdc_id"]: rec for rec in records}
 
     for batch in _chunks(list(by_fdc.values()), batch_size):
-        # The upsert returns the stored rows, which carry the ids the values need.
+        # The upsert returns the stored rows, which carry the ids the nutrients need.
         stored = client.table("foods").upsert([food_row(r) for r in batch], on_conflict="fdc_id").execute().data
         foods += len(stored)
-        rows = [row for food in stored for row in nutrient_rows(by_fdc[food["fdc_id"]], food["id"])]
+        recs = [(by_fdc[food["fdc_id"]], food["id"]) for food in stored]
+
+        branded = [branded_row(rec, food_id) for rec, food_id in recs if rec["source"] == "branded"]
+        if branded:
+            client.table("branded_food_nutrients").upsert(branded, on_conflict="food_id").execute()
+            values += sum(len(rec["nutrients"]) for rec, _ in recs if rec["source"] == "branded")
+
+        rows = [row for rec, food_id in recs if rec["source"] != "branded" for row in nutrient_rows(rec, food_id)]
         for value_batch in _chunks(rows, batch_size * 10):
             client.table("food_nutrient_values").upsert(value_batch, on_conflict="food_id,nutrient_id").execute()
             values += len(value_batch)

@@ -26,7 +26,7 @@ const rows = () => ({
     { custom_food_id: 'c1', nutrient_id: NUTRIENT.energy, value: 120 },
     { custom_food_id: 'c1', nutrient_id: NUTRIENT.protein, value: 4 },
   ],
-  food_nutrient_values: [{ food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 400 }],
+  food_nutrients: [{ food_id: 'f1', nutrient_id: NUTRIENT.energy, value: 400 }],
 })
 const writes = (table: string) => fake.current.state.calls.filter((c) => c.table === table)
 

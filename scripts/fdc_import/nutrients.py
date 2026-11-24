@@ -133,3 +133,24 @@ LABEL_NUTRIENT_IDS: frozenset[int] = frozenset({
     1092, 1087, 1088, 1091,    # sodium, calcium, iron, potassium
     1110,                      # vitamin D
 })
+
+# Branded foods are stored one row per food in branded_food_nutrients, with a column
+# per label nutrient, to save space. Keep in step with that table's migration.
+BRANDED_COLUMNS: Dict[int, str] = {
+    ENERGY: "energy",
+    1003: "protein",
+    1004: "fat",
+    1005: "carbs",
+    1079: "fiber",
+    SUGARS: "sugars",
+    1235: "added_sugars",
+    1258: "saturated_fat",
+    1257: "trans_fat",
+    1253: "cholesterol",
+    1092: "sodium",
+    1087: "calcium",
+    1088: "iron",
+    1091: "potassium",
+    1110: "vitamin_d",
+}
+assert frozenset(BRANDED_COLUMNS) == LABEL_NUTRIENT_IDS

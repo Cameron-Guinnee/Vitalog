@@ -1,7 +1,7 @@
 import json
 import zipfile
 
-from scripts.fdc_import.nutrients import ENERGY, LABEL_NUTRIENT_IDS, SUGARS
+from scripts.fdc_import.nutrients import ENERGY, SUGARS
 from scripts.fdc_import.parser import (
     BrandedOptions,
     best_portion,
@@ -12,7 +12,7 @@ from scripts.fdc_import.parser import (
     newest_per_barcode,
     sniff_dataset,
 )
-from scripts.fdc_import.size import FOOD_ROW_BYTES, VALUE_ROW_BYTES, SizeEstimate
+from scripts.fdc_import.size import BRANDED_ROW_BYTES, FOOD_ROW_BYTES, VALUE_ROW_BYTES, SizeEstimate
 
 
 def nutrients(**by_id):
@@ -80,11 +80,11 @@ def test_branded_full_and_slim():
     assert full["serving_unit"] == "1/2 cup"
     assert full["serving_size"] == 40
     assert full["is_verified"] is False
-    assert 1162 in full["nutrients"]
+    # Branded foods keep only label nutrients, which is what their compact table holds.
+    assert set(full["nutrients"]) == {ENERGY, 1003, SUGARS}
 
     slim = extract_branded(branded_food(), BrandedOptions(slim=True))
-    assert set(slim["nutrients"]) <= LABEL_NUTRIENT_IDS
-    assert slim["nutrients"][SUGARS] == 12
+    assert slim["nutrients"] == full["nutrients"]
 
 
 def test_slim_branded_skips_foods_sold_outside_the_us():
@@ -131,6 +131,8 @@ def test_iter_records_end_to_end(tmp_path):
 
 def test_size_estimate():
     est = SizeEstimate()
-    est.add({"source": "branded", "nutrients": {1: 1, 2: 2}})
+    est.add({"source": "sr_legacy", "nutrients": {1: 1, 2: 2}})
     assert est.total_bytes == FOOD_ROW_BYTES + 2 * VALUE_ROW_BYTES
+    est.add({"source": "branded", "nutrients": {1: 1, 2: 2, 3: 3}})
+    assert est.bytes_for("branded") == FOOD_ROW_BYTES + BRANDED_ROW_BYTES  # one compact row, however many values
     assert "branded" in est.report()

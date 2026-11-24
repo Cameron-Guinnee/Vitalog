@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 FOOD_ROW_BYTES = 450  # foods row plus its primary key, fdc_id, created_by and two search indexes
 VALUE_ROW_BYTES = 111  # food_nutrient_values row plus its primary key
+BRANDED_ROW_BYTES = 147  # branded_food_nutrients row (one per branded food) plus its primary key
 FREE_PLAN_BYTES = 500 * 1024 * 1024  # Supabase free plan database limit
 
 
@@ -25,6 +26,8 @@ class SizeEstimate:
         self.values[rec["source"]] += len(rec["nutrients"])
 
     def bytes_for(self, source: str) -> int:
+        if source == "branded":
+            return self.foods[source] * (FOOD_ROW_BYTES + BRANDED_ROW_BYTES)
         return self.foods[source] * FOOD_ROW_BYTES + self.values[source] * VALUE_ROW_BYTES
 
     @property

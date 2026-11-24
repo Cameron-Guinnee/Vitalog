@@ -43,3 +43,16 @@ def test_duplicate_fdc_ids_in_one_batch_are_sent_once():
     client = FakeClient()
     foods, _ = upsert_foods([rec(1, **{"1008": 50}), rec(1, **{"1008": 55})], client)
     assert foods == 1
+
+
+def test_branded_foods_get_one_compact_row_each():
+    client = FakeClient()
+    branded = {**rec(5, **{"1008": 450}), "source": "branded"}
+    branded["nutrients"] = {1008: 450, 1003: 10}
+    foods, values = upsert_foods([branded, rec(6, **{"1008": 60})], client)
+    assert (foods, values) == (2, 3)
+    tables = [(name, conflict) for name, conflict, _ in client.calls]
+    assert tables == [("foods", "fdc_id"), ("branded_food_nutrients", "food_id"), ("food_nutrient_values", "food_id,nutrient_id")]
+    row = client.calls[1][2][0]
+    assert row["food_id"] == "uuid-5" and row["energy"] == 450 and row["protein"] == 10
+    assert row["sodium"] is None  # every column is sent, so stale values are cleared
